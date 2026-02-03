@@ -1,0 +1,269 @@
+/* Godey Data Platform - Professional Fintech Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Core brand colors - Deep Teal & Gold */
+    --background: 180 10% 98%;
+    --foreground: 192 50% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 192 50% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 192 50% 10%;
+
+    /* Primary - Deep Teal */
+    --primary: 173 58% 39%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Warm neutral */
+    --secondary: 180 8% 95%;
+    --secondary-foreground: 192 50% 10%;
+
+    /* Muted */
+    --muted: 180 8% 93%;
+    --muted-foreground: 192 20% 45%;
+
+    /* Accent - Gold for premium/agent tiers */
+    --accent: 32 95% 44%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 180 10% 88%;
+    --input: 180 10% 88%;
+    --ring: 173 58% 39%;
+
+    --radius: 0.75rem;
+
+    /* Agent tier colors */
+    --tier-client: 180 8% 60%;
+    --tier-basic: 173 58% 45%;
+    --tier-master: 199 89% 48%;
+    --tier-premier: 263 70% 58%;
+    --tier-elite: 32 95% 44%;
+
+    /* Network brand colors */
+    --network-mtn: 45 100% 50%;
+    --network-airtel: 0 84% 50%;
+    --network-telecel: 199 89% 48%;
+    --network-afa: 45 100% 40%;
+
+    /* Success/Info states */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 45 100% 10%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(173, 58%, 39%) 0%, hsl(173, 58%, 30%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(32, 95%, 44%) 0%, hsl(32, 95%, 35%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(192, 50%, 8%) 0%, hsl(173, 58%, 20%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(180, 10%, 98%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(192, 50%, 10%, 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(192, 50%, 10%, 0.1), 0 2px 4px -2px hsl(192, 50%, 10%, 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(192, 50%, 10%, 0.1), 0 4px 6px -4px hsl(192, 50%, 10%, 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(192, 50%, 10%, 0.1), 0 8px 10px -6px hsl(192, 50%, 10%, 0.1);
+    --shadow-glow: 0 0 30px hsl(173, 58%, 39%, 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 192 50% 8%;
+    --sidebar-foreground: 180 10% 90%;
+    --sidebar-primary: 173 58% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 50% 15%;
+    --sidebar-accent-foreground: 180 10% 90%;
+    --sidebar-border: 192 50% 20%;
+    --sidebar-ring: 173 58% 45%;
+  }
+
+  .dark {
+    --background: 192 50% 6%;
+    --foreground: 180 10% 95%;
+
+    --card: 192 50% 10%;
+    --card-foreground: 180 10% 95%;
+
+    --popover: 192 50% 10%;
+    --popover-foreground: 180 10% 95%;
+
+    --primary: 173 58% 50%;
+    --primary-foreground: 192 50% 6%;
+
+    --secondary: 192 40% 15%;
+    --secondary-foreground: 180 10% 95%;
+
+    --muted: 192 40% 15%;
+    --muted-foreground: 180 10% 60%;
+
+    --accent: 32 95% 50%;
+    --accent-foreground: 192 50% 6%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 192 40% 18%;
+    --input: 192 40% 18%;
+    --ring: 173 58% 50%;
+
+    --sidebar-background: 192 50% 4%;
+    --sidebar-foreground: 180 10% 90%;
+    --sidebar-primary: 173 58% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 50% 12%;
+    --sidebar-accent-foreground: 180 10% 90%;
+    --sidebar-border: 192 50% 15%;
+    --sidebar-ring: 173 58% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  /* Card variants */
+  .card-elevated {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--shadow-md);
+  }
+
+  .card-glass {
+    @apply bg-card/80 backdrop-blur-xl rounded-xl border border-border/50;
+  }
+
+  /* Gradient backgrounds */
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .bg-gradient-gold {
+    background: var(--gradient-gold);
+  }
+
+  /* Network badges */
+  .network-mtn {
+    @apply bg-[hsl(45,100%,50%)] text-black;
+  }
+
+  .network-airtel {
+    @apply bg-[hsl(0,84%,50%)] text-white;
+  }
+
+  .network-telecel {
+    @apply bg-[hsl(199,89%,48%)] text-white;
+  }
+
+  /* Tier badges */
+  .tier-client {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .tier-basic {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .tier-master {
+    @apply bg-info text-info-foreground;
+  }
+
+  .tier-premier {
+    @apply bg-[hsl(263,70%,58%)] text-white;
+  }
+
+  .tier-elite {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Animated gradient border */
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(var(--background), var(--background)) padding-box,
+                linear-gradient(135deg, hsl(173, 58%, 39%), hsl(32, 95%, 44%)) border-box;
+    border: 2px solid transparent;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
