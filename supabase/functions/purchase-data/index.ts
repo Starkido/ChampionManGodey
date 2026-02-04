@@ -1280,7 +1280,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // VERSION LOGGING - Update this on each deployment to verify correct version is running
-const VERSION = "v1.0.1-lovable";
+const VERSION = "idencreative-v1.0.0";
 const DEPLOYED_AT = new Date().toISOString();
 
 console.log(`[PURCHASE-DATA] ========================================`);
