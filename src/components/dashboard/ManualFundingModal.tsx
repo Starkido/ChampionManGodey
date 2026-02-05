@@ -27,9 +27,9 @@ interface ManualFundingModalProps {
 }
 
 const MOMO_ACCOUNTS = [
-  { network: "MTN", number: "0551234567", name: "DataShop Ltd" },
-  { network: "AirtelTigo", number: "0271234567", name: "DataShop Ltd" },
-  { network: "Telecel", number: "0201234567", name: "DataShop Ltd" },
+  { network: "MTN", number: "05494248172", name: "Champion Man GoDey" },
+  { network: "AirtelTigo", number: "0562200415", name: "Champion Man GoDey" },
+  { network: "Telecel", number: "0202739539", name: "Champion Man GoDey" },
 ];
 
 export const ManualFundingModal = ({

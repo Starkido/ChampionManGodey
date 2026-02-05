@@ -15,8 +15,8 @@ export const TestModeBanner = ({ className }: TestModeBannerProps) => {
     <div className={`bg-warning text-warning-foreground px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 ${className || ""}`}>
       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
       <span>
-        <strong>TEST MODE:</strong> Payments use test cards only. Data purchases are simulated. 
-        Contact admin for live balance credits.
+        <strong>TEST MODE:</strong>
+        Contact admin for wallet balance credition or use the manual funding feature.
       </span>
     </div>
   );
