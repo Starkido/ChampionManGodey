@@ -80,8 +80,23 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   
-  // Get pricing tiers for the selected network
+  // Quick Buy dialog state
+  const [quickBuyDialogOpen, setQuickBuyDialogOpen] = useState(false);
+  const [selectedQuickBuyTier, setSelectedQuickBuyTier] = useState<any>(null);
+  const [quickBuyPhoneNumber, setQuickBuyPhoneNumber] = useState("");
+  const [isAddingQuickBuyToCart, setIsAddingQuickBuyToCart] = useState(false);
+  
+  // Get pricing tiers for the selected network (for quick actions)
   const { tiers } = usePricingTiers(userRole, selectedQuickAction?.network);
+  
+  // Get all popular/hot packages for Quick Buy (1GB packages from each network)
+  const { tiers: allTiers, loading: tiersLoading } = usePricingTiers(userRole);
+  
+  // Filter to get hot/popular packages (1GB from each network, or most popular)
+  const hotPackages = allTiers.filter((tier) => {
+    // Get 1GB packages from each network as "hot" packages
+    return tier.data_amount === "1GB" || tier.data_amount === "2GB";
+  }).slice(0, 8); // Limit to 8 packages
 
   // Calculate today's purchases
   const today = new Date();
@@ -143,6 +158,49 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       toast.error("Failed to add to cart");
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleQuickBuyClick = () => {
+    setQuickBuyDialogOpen(true);
+    setSelectedQuickBuyTier(null);
+    setQuickBuyPhoneNumber("");
+  };
+
+  const handleSelectQuickBuyPackage = (tier: any) => {
+    setSelectedQuickBuyTier(tier);
+    setQuickBuyPhoneNumber("");
+  };
+
+  const handleAddQuickBuyToCart = async () => {
+    if (!selectedQuickBuyTier || !quickBuyPhoneNumber) {
+      toast.error("Please enter a phone number");
+      return;
+    }
+
+    if (!validatePhone(quickBuyPhoneNumber)) {
+      toast.error("Please enter a valid Ghana phone number");
+      return;
+    }
+
+    setIsAddingQuickBuyToCart(true);
+    try {
+      const success = await addToCart(selectedQuickBuyTier.id, quickBuyPhoneNumber.replace(/\s/g, ""));
+      
+      if (success) {
+        toast.success("Added to cart!", {
+          description: "Go to cart to proceed to checkout",
+          duration: 5000,
+        });
+        setQuickBuyDialogOpen(false);
+        setQuickBuyPhoneNumber("");
+        setSelectedQuickBuyTier(null);
+      }
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      toast.error("Failed to add to cart");
+    } finally {
+      setIsAddingQuickBuyToCart(false);
     }
   };
 
@@ -359,7 +417,7 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
               </SheetContent>
             </Sheet>
           )}
-          <Button variant="gold">
+          <Button variant="gold" onClick={handleQuickBuyClick}>
             <Zap className="w-4 h-4" />
             Quick Buy
           </Button>
@@ -559,6 +617,138 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Buy Dialog */}
+      <Dialog open={quickBuyDialogOpen} onOpenChange={setQuickBuyDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quick Buy Data</DialogTitle>
+            <DialogDescription>
+              Select a popular data package and add recipient phone number to cart
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Package Selection */}
+            {!selectedQuickBuyTier ? (
+              <>
+                {tiersLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : hotPackages.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No packages available
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {hotPackages.map((tier) => (
+                      <button
+                        key={tier.id}
+                        onClick={() => handleSelectQuickBuyPackage(tier)}
+                        className="p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:shadow-md transition-all text-left"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <NetworkBadge network={tier.network as "MTN" | "Airtel" | "Telecel" | "MTN_AFA"} size="sm" />
+                        </div>
+                        <p className="font-display text-xl font-bold text-foreground">
+                          {tier.data_amount}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {tier.package_name}
+                        </p>
+                        <p className="text-lg font-semibold text-primary mt-3">
+                          GHS {Number(tier.price).toFixed(2)}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Selected Package Display */}
+                <div className="p-4 bg-muted/50 rounded-xl border border-border">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <NetworkBadge network={selectedQuickBuyTier.network as "MTN" | "Airtel" | "Telecel" | "MTN_AFA"} size="sm" />
+                        <span className="font-medium text-sm">{selectedQuickBuyTier.data_amount}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{selectedQuickBuyTier.package_name}</p>
+                      <p className="text-lg font-semibold text-primary mt-2">
+                        GHS {Number(selectedQuickBuyTier.price).toFixed(2)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedQuickBuyTier(null)}
+                    >
+                      Change Package
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Phone Number Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="quick-buy-phone">Beneficiary Phone Number</Label>
+                  <div className="relative">
+                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="quick-buy-phone"
+                      type="tel"
+                      placeholder="e.g., 0241234567"
+                      value={quickBuyPhoneNumber}
+                      onChange={(e) => setQuickBuyPhoneNumber(e.target.value)}
+                      className="pl-10"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleAddQuickBuyToCart();
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the phone number to receive the data bundle
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedQuickBuyTier(null);
+                      setQuickBuyPhoneNumber("");
+                    }}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="gold"
+                    onClick={handleAddQuickBuyToCart}
+                    disabled={!quickBuyPhoneNumber || isAddingQuickBuyToCart}
+                    className="flex-1"
+                  >
+                    {isAddingQuickBuyToCart ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Add to Cart
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
