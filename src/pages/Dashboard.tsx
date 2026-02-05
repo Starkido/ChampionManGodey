@@ -118,6 +118,7 @@ const Dashboard = () => {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLogout={handleLogout}
+        onFundWallet={handleFundWallet}
       >
         {activeSection === "home" && (
           <DashboardHome 

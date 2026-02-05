@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 // WhatsApp support number - update this with your actual support number
-const WHATSAPP_SUPPORT_NUMBER = "233XXXXXXXXX"; // Format: country code + number without +
+const WHATSAPP_SUPPORT_NUMBER = "233594248172"; // Format: country code + number without +
 
 interface DashboardLayoutProps {
   user: User;
@@ -30,6 +30,7 @@ interface DashboardLayoutProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   onLogout: () => void;
+  onFundWallet?: () => void;
   children: React.ReactNode;
 }
 
@@ -53,6 +54,7 @@ export const DashboardLayout = ({
   activeSection,
   onSectionChange,
   onLogout,
+  onFundWallet,
   children,
 }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -135,7 +137,11 @@ export const DashboardLayout = ({
                 key={item.id}
                 onClick={() => {
                   if (item.id === "wallet") {
-                    onSectionChange("home");
+                    if (onFundWallet) {
+                      onFundWallet();
+                    } else {
+                      onSectionChange("home");
+                    }
                   } else if (item.id === "support") {
                     openWhatsAppSupport();
                   } else if (item.id === "help") {
