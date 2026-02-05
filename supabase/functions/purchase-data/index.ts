@@ -2277,7 +2277,8 @@ Deno.serve(async (req) => {
       body = await req.json();
       console.log(`[PURCHASE-DATA][${VERSION}] Request body:`, JSON.stringify(body));
 
-      reference = body.reference;
+      // Support both 'idempotency_key' and 'reference' for backward compatibility
+      reference = body.idempotency_key || body.reference;
 
       if (!reference) {
         console.log(`[PURCHASE-DATA][${VERSION}] Missing idempotency reference`);
