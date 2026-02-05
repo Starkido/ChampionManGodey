@@ -2575,13 +2575,58 @@ Deno.serve(async (req) => {
       for (let i = 0; i < detail.quantity; i++) {
         const itemRef = `${reference}-${detail.tier.network}-${i}`;
 
-        const result = await purchaseDataFromProvider(
-          agyengosApiKey,
-          detail.phone,
-          detail.tier.network,
-          dataAmountMB,
-          itemRef
-        );
+        // Check for recent successful transaction with same phone + network + amount
+        // This prevents provider duplicate detection errors
+        const { data: recentTx } = await supabaseAdmin
+          .from("transactions")
+          .select("id, metadata, created_at")
+          .eq("user_id", userId)
+          .eq("type", "purchase")
+          .eq("status", "success")
+          .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Last 5 minutes
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        let isRecentDuplicate = false;
+        if (recentTx && recentTx.length > 0) {
+          // Check if any recent transaction has the same phone + network + data amount
+          for (const tx of recentTx) {
+            const metadata = tx.metadata as any;
+            if (metadata?.items && Array.isArray(metadata.items)) {
+              for (const item of metadata.items) {
+                if (
+                  item.beneficiary_phone === detail.phone &&
+                  item.network === detail.tier.network &&
+                  item.data_amount === detail.tier.data_amount &&
+                  item.status === "success"
+                ) {
+                  isRecentDuplicate = true;
+                  console.log(`[PURCHASE-DATA][${VERSION}] Recent duplicate detected: Same phone (${detail.phone}), network (${detail.tier.network}), and data amount (${detail.tier.data_amount}) was successfully purchased recently`);
+                  break;
+                }
+              }
+            }
+            if (isRecentDuplicate) break;
+          }
+        }
+
+        let result;
+        if (isRecentDuplicate) {
+          // Skip API call and mark as failed to avoid provider duplicate error
+          result = {
+            success: false,
+            message: "Recent duplicate purchase detected. Please wait a few minutes before purchasing the same package again.",
+          };
+          console.log(`[PURCHASE-DATA][${VERSION}] Skipping API call due to recent duplicate`);
+        } else {
+          result = await purchaseDataFromProvider(
+            agyengosApiKey,
+            detail.phone,
+            detail.tier.network,
+            dataAmountMB,
+            itemRef
+          );
+        }
 
         if (result.success) {
           deliveryResults.push({
@@ -2594,17 +2639,79 @@ Deno.serve(async (req) => {
             provider_reference: result.transactionCode,
           });
         } else {
-          allSuccessful = false;
-          failedAmount += Number(detail.tier.price);
-          deliveryResults.push({
-            network: detail.tier.network,
-            package_name: detail.tier.package_name,
-            data_amount: detail.tier.data_amount,
-            beneficiary_phone: detail.phone,
-            quantity: 1,
-            status: "failed",
-            error: result.message,
-          });
+          // Special handling for provider duplicate detection
+          if (result.message?.toLowerCase().includes("duplicate")) {
+            // Check if there was a recent successful transaction - might mean data was already delivered
+            const { data: recentSuccessTx } = await supabaseAdmin
+              .from("transactions")
+              .select("id, metadata, created_at")
+              .eq("user_id", userId)
+              .eq("type", "purchase")
+              .eq("status", "success")
+              .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString()) // Last 10 minutes
+              .order("created_at", { ascending: false })
+              .limit(5);
+
+            let wasRecentlyDelivered = false;
+            if (recentSuccessTx && recentSuccessTx.length > 0) {
+              for (const tx of recentSuccessTx) {
+                const metadata = tx.metadata as any;
+                if (metadata?.items && Array.isArray(metadata.items)) {
+                  for (const item of metadata.items) {
+                    if (
+                      item.beneficiary_phone === detail.phone &&
+                      item.network === detail.tier.network &&
+                      item.data_amount === detail.tier.data_amount &&
+                      item.status === "success"
+                    ) {
+                      wasRecentlyDelivered = true;
+                      console.log(`[PURCHASE-DATA][${VERSION}] Provider duplicate detected, but data was recently delivered successfully`);
+                      break;
+                    }
+                  }
+                }
+                if (wasRecentlyDelivered) break;
+              }
+            }
+
+            if (wasRecentlyDelivered) {
+              // Treat as success since data was likely already delivered
+              console.log(`[PURCHASE-DATA][${VERSION}] Treating provider duplicate as success (recent delivery found)`);
+              deliveryResults.push({
+                network: detail.tier.network,
+                package_name: detail.tier.package_name,
+                data_amount: detail.tier.data_amount,
+                beneficiary_phone: detail.phone,
+                quantity: 1,
+                status: "success",
+                provider_reference: "duplicate-detected-but-delivered",
+              });
+            } else {
+              allSuccessful = false;
+              failedAmount += Number(detail.tier.price);
+              deliveryResults.push({
+                network: detail.tier.network,
+                package_name: detail.tier.package_name,
+                data_amount: detail.tier.data_amount,
+                beneficiary_phone: detail.phone,
+                quantity: 1,
+                status: "failed",
+                error: result.message || "Duplicate order detected by provider",
+              });
+            }
+          } else {
+            allSuccessful = false;
+            failedAmount += Number(detail.tier.price);
+            deliveryResults.push({
+              network: detail.tier.network,
+              package_name: detail.tier.package_name,
+              data_amount: detail.tier.data_amount,
+              beneficiary_phone: detail.phone,
+              quantity: 1,
+              status: "failed",
+              error: result.message,
+            });
+          }
         }
       }
     }
@@ -2650,7 +2757,7 @@ Deno.serve(async (req) => {
         type: "purchase",
         amount: successfulAmount,
         status: transactionStatus,
-        // reference,
+        reference,
         metadata: {
           items: deliveryResults,
           total_requested: totalAmount,
