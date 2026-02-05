@@ -116,14 +116,43 @@ export const BuyDataPage = ({ user, userRole, walletBalance, onPurchaseComplete 
         return;
       }
 
-      toast.success(
-        `Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`,
-        { description: `Ref: ${data.reference}` }
-      );
+      // Check if purchase was processed (success or partial success)
+      const wasProcessed = data.success !== false && !data.error;
+      
+      if (wasProcessed) {
+        // Show success message
+        const successCount = data.results?.filter((r: any) => r.status === "success").length || 0;
+        const failedCount = data.results?.filter((r: any) => r.status === "failed").length || 0;
+        
+        if (successCount > 0 && failedCount === 0) {
+          toast.success(
+            `Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`,
+            { description: data.reference ? `Ref: ${data.reference}` : undefined }
+          );
+        } else if (successCount > 0) {
+          toast.success(
+            `Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+            { description: data.reference ? `Ref: ${data.reference}` : undefined }
+          );
+        } else {
+          toast.info(
+            `Purchase processed. ${failedCount} item(s) failed. Amount refunded.`,
+            { description: data.reference ? `Ref: ${data.reference}` : undefined }
+          );
+        }
 
-      setSelectedPackage(null);
-      setPhoneNumber("");
-      onPurchaseComplete?.();
+        // Clear state
+        setSelectedPackage(null);
+        setPhoneNumber("");
+        setSelectedNetwork("MTN");
+        
+        // Refresh page after a short delay to show the toast
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.error("Purchase failed. Please try again.");
+      }
     } catch (err) {
       console.error("Purchase error:", err);
       toast.error("Purchase failed. Please try again.");
@@ -200,12 +229,45 @@ export const BuyDataPage = ({ user, userRole, walletBalance, onPurchaseComplete 
         return;
       }
 
-      toast.success("Checkout successful! Data bundles are being processed.", {
-        description: `Ref: ${data.reference}`,
-      });
+      // Check if checkout was processed (success or partial success)
+      const wasProcessed = data.success !== false && !data.error;
+      
+      if (wasProcessed) {
+        // Show success message
+        const successCount = data.results?.filter((r: any) => r.status === "success").length || 0;
+        const failedCount = data.results?.filter((r: any) => r.status === "failed").length || 0;
+        
+        if (successCount > 0 && failedCount === 0) {
+          toast.success("Checkout successful! All data bundles are being processed.", {
+            description: data.reference ? `Ref: ${data.reference}` : undefined,
+          });
+        } else if (successCount > 0) {
+          toast.success(
+            `Checkout partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+            { description: data.reference ? `Ref: ${data.reference}` : undefined }
+          );
+        } else {
+          toast.info(
+            `Checkout processed. ${failedCount} item(s) failed. Amount refunded.`,
+            { description: data.reference ? `Ref: ${data.reference}` : undefined }
+          );
+        }
 
-      await clearCart();
-      onPurchaseComplete?.();
+        // Clear cart
+        await clearCart();
+        
+        // Clear purchase form state
+        setSelectedPackage(null);
+        setPhoneNumber("");
+        setSelectedNetwork("MTN");
+        
+        // Refresh page after a short delay to show the toast
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.error("Checkout failed. Please try again.");
+      }
     } catch (err) {
       console.error("Checkout error:", err);
       toast.error("Checkout failed. Please try again.");
