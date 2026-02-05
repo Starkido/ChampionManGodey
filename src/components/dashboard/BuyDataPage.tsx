@@ -23,6 +23,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
+const generateIdempotencyKey = () =>
+  crypto.randomUUID();
+
 type AppRole = Database["public"]["Enums"]["app_role"];
 type Network = "MTN" | "Airtel" | "Telecel" | "MTN_AFA";
 
@@ -80,14 +83,27 @@ export const BuyDataPage = ({ user, userRole, walletBalance, onPurchaseComplete 
 
     setIsPurchasing(true);
 
-    try {
-      const { data, error } = await supabase.functions.invoke("purchase-data", {
-        body: {
-          pricing_tier_id: selectedPackage,
-          beneficiary_phone: phoneNumber.replace(/\s/g, ""),
-          quantity: 1,
-        },
-      });
+    // try {
+      // const { data, error } = await supabase.functions.invoke("purchase-data", {
+      //   body: {
+      //     pricing_tier_id: selectedPackage,
+      //     beneficiary_phone: phoneNumber.replace(/\s/g, ""),
+      //     quantity: 1,
+      //   },
+      // });
+      
+      try {
+        const idempotencyKey = generateIdempotencyKey();
+
+        const { data, error } = await supabase.functions.invoke("purchase-data", {
+          body: {
+            idempotency_key: idempotencyKey,
+            pricing_tier_id: selectedPackage,
+            beneficiary_phone: phoneNumber.replace(/\s/g, ""),
+            quantity: 1,
+          },
+        });
+
 
       if (error) {
         console.error("Purchase error:", error);
@@ -147,16 +163,31 @@ export const BuyDataPage = ({ user, userRole, walletBalance, onPurchaseComplete 
 
     setIsCheckingOut(true);
 
+    // try {
+    //   const { data, error } = await supabase.functions.invoke("purchase-data", {
+    //     body: {
+    //       cart_items: cartItems.map((item) => ({
+    //         pricing_tier_id: item.pricing_tier_id,
+    //         beneficiary_phone: item.beneficiary_phone,
+    //         quantity: item.quantity,
+    //       })),
+    //     },
+    //   });
+
     try {
-      const { data, error } = await supabase.functions.invoke("purchase-data", {
-        body: {
-          cart_items: cartItems.map((item) => ({
-            pricing_tier_id: item.pricing_tier_id,
-            beneficiary_phone: item.beneficiary_phone,
-            quantity: item.quantity,
-          })),
-        },
-      });
+    const idempotencyKey = generateIdempotencyKey();
+
+    const { data, error } = await supabase.functions.invoke("purchase-data", {
+      body: {
+        idempotency_key: idempotencyKey,
+        cart_items: cartItems.map((item) => ({
+          pricing_tier_id: item.pricing_tier_id,
+          beneficiary_phone: item.beneficiary_phone,
+          quantity: item.quantity,
+        })),
+      },
+    });
+
 
       if (error) {
         console.error("Checkout error:", error);
