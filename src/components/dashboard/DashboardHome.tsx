@@ -450,38 +450,15 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Wallet Card */}
+      <div>
         <WalletCard 
           balance={walletBalance} 
           onFund={onFundWallet}
-          className="sm:col-span-2"
         />
-        
-        <div className="p-6 rounded-2xl bg-card border border-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Smartphone className="w-5 h-5 text-primary" />
-            </div>
-            <span className="text-sm text-muted-foreground">Today's Purchases</span>
-          </div>
-          <p className="font-display text-3xl font-bold text-foreground">{todaysPurchases.length}</p>
-          <p className="text-sm text-muted-foreground mt-1">GHS {todaysSpent.toFixed(2)} spent</p>
-        </div>
-
-        <div className="p-6 rounded-2xl bg-card border border-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-accent" />
-            </div>
-            <span className="text-sm text-muted-foreground">Your Tier</span>
-          </div>
-          <TierBadge tier={userRole} size="lg" />
-          <p className="text-sm text-muted-foreground mt-2">Role-based pricing</p>
-        </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick Buy Data Section */}
       <div>
         <h2 className="font-display text-lg font-semibold text-foreground mb-4">
           Quick Buy Data
@@ -536,6 +513,31 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
             ))}
           </div>
         )}
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="p-6 rounded-2xl bg-card border border-border">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Smartphone className="w-5 h-5 text-primary" />
+            </div>
+            <span className="text-sm text-muted-foreground">Today's Purchases</span>
+          </div>
+          <p className="font-display text-3xl font-bold text-foreground">{todaysPurchases.length}</p>
+          <p className="text-sm text-muted-foreground mt-1">GHS {todaysSpent.toFixed(2)} spent</p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-card border border-border">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-accent" />
+            </div>
+            <span className="text-sm text-muted-foreground">Your Tier</span>
+          </div>
+          <TierBadge tier={userRole} size="lg" />
+          <p className="text-sm text-muted-foreground mt-2">Role-based pricing</p>
+        </div>
       </div>
 
       {/* Recent transactions */}
