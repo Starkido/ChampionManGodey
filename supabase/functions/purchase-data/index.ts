@@ -2064,7 +2064,7 @@ async function purchaseDataFromProvider(
   recipientPhone: string,
   networkName: string,
   dataAmountMB: number,
-  // reference: string
+  reference: string
 ): Promise<{ success: boolean; message: string; transactionCode?: string }> {
   // Normalize network name for consistent mapping
   const normalizedNetwork = normalizeNetwork(networkName);
@@ -2094,7 +2094,7 @@ async function purchaseDataFromProvider(
   console.log(`[PURCHASE-DATA][${VERSION}] Network name (normalized):`, normalizedNetwork);
   console.log(`[PURCHASE-DATA][${VERSION}] Network ID (provider):`, networkId);
   console.log(`[PURCHASE-DATA][${VERSION}] Data amount (MB):`, dataAmountMB);
-  // console.log(`[PURCHASE-DATA][${VERSION}] Reference:`, reference);
+  console.log(`[PURCHASE-DATA][${VERSION}] Reference:`, reference);
   console.log(`[PURCHASE-DATA][${VERSION}] API Key present:`, !!apiKey);
   console.log(`[PURCHASE-DATA][${VERSION}] API Key prefix:`, apiKey?.substring(0, 8) + "...");
 
@@ -2102,7 +2102,7 @@ async function purchaseDataFromProvider(
     recipient_msisdn: formattedPhone,
     network_id: networkId,
     shared_bundle: dataAmountMB,
-    // incoming_api_ref: reference, // Commented out to avoid duplicate reference generation
+    incoming_api_ref: reference,
   };
 
   console.log(`[PURCHASE-DATA][${VERSION}] Request URL:`, `${AGYENGOSOLN_API_URL}/buy-data-package`);
@@ -2573,14 +2573,14 @@ Deno.serve(async (req) => {
 
       // Process each unit in quantity
       for (let i = 0; i < detail.quantity; i++) {
-        // const itemRef = `${reference}-${detail.tier.network}-${i}`;
+        const itemRef = `${reference}-${detail.tier.network}-${i}`;
 
         const result = await purchaseDataFromProvider(
           agyengosApiKey,
           detail.phone,
           detail.tier.network,
           dataAmountMB,
-          // itemRef
+          itemRef
         );
 
         if (result.success) {
