@@ -9,6 +9,16 @@ import { AdminPricing } from "@/components/admin/AdminPricing";
 import { AdminTransactions } from "@/components/admin/AdminTransactions";
 import { AdminWithdrawals } from "@/components/admin/AdminWithdrawals";
 import { AdminManualFunding } from "@/components/admin/AdminManualFunding";
+import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
+import { AdminSettings } from "@/components/admin/AdminSettings";
+
+// Then in the render:
+// {activeSection === "analytics" && <AdminAnalytics />}
+// {activeSection === "settings" && <AdminSettings user={user} />}
+// Then in the render:
+  // {activeSection === "analytics" && <AdminAnalytics />}
+  // {activeSection === "settings" && <AdminSettings user={user} />}
+
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -97,6 +107,8 @@ const Admin = () => {
       {activeSection === "withdrawals" && <AdminWithdrawals />}
       {activeSection === "pricing" && <AdminPricing />}
       {activeSection === "transactions" && <AdminTransactions />}
+      {activeSection === "analytics" && <AdminAnalytics />}
+      {activeSection === "settings" && <AdminSettings user={user} />}
       {activeSection === "analytics" && (
         <div className="p-8">
           <h1 className="font-display text-2xl font-bold mb-4">Analytics</h1>
