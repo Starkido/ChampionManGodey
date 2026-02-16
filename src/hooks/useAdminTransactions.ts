@@ -91,13 +91,36 @@ export const useAdminTransactions = (limit?: number): UseAdminTransactionsResult
         .select("type, amount, status, created_at");
 
       if (allTx) {
+        // const funding = allTx
+        //   .filter((t) => t.type === "wallet_funding" && t.status === "success")
+        //   .reduce((sum, t) => sum + Number(t.amount), 0);
+
         const funding = allTx
-          .filter((t) => t.type === "wallet_funding" && t.status === "success")
-          .reduce((sum, t) => sum + Number(t.amount), 0);
+          .filter((t) =>
+            ["wallet_funding", "manual_funding", "admin_credit"].includes(t.type) &&
+            t.status === "success"
+          )
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+
+        // const purchases = allTx
+        //   .filter((t) => t.type === "purchase" && (t.status === "success" || t.status === "partial"))
+        //   .reduce((sum, t) => sum + Number(t.amount), 0);
 
         const purchases = allTx
-          .filter((t) => t.type === "purchase" && (t.status === "success" || t.status === "partial"))
-          .reduce((sum, t) => sum + Number(t.amount), 0);
+          .filter((t) =>
+            t.type === "purchase" &&
+            (t.status === "success" || t.status === "partial")
+          )
+          .reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0);
+
+
+        // const withdrawals = allTx
+        //   .filter((t) =>
+        //     t.type === "withdrawal" &&
+        //     t.status === "success"
+        //   )
+        //   .reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0);
 
         const commissions = allTx
           .filter((t) => t.type === "commission" && t.status === "success")
@@ -126,9 +149,14 @@ export const useAdminTransactions = (limit?: number): UseAdminTransactionsResult
 
           last14Days.push({
             date: displayDate,
+            // funding: dayTx
+            //   .filter((t) => t.type === "wallet_funding")
+            //   .reduce((sum, t) => sum + Number(t.amount), 0),
             funding: dayTx
-              .filter((t) => t.type === "wallet_funding")
-              .reduce((sum, t) => sum + Number(t.amount), 0),
+              .filter((t) =>
+                ["wallet_funding", "manual_funding", "admin_credit"].includes(t.type)
+              )
+              .reduce((sum, t) => sum + Number(t.amount || 0), 0),
             purchases: dayTx
               .filter((t) => t.type === "purchase")
               .reduce((sum, t) => sum + Number(t.amount), 0),

@@ -36,7 +36,7 @@ export const Logo = ({ className, variant = "default", size = "md" }: LogoProps)
         </span>
       </div>
       <span className={cn(colorClasses[variant])}>
-        Godey
+        Champion Man Agency
       </span>
     </div>
   );

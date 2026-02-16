@@ -264,7 +264,7 @@ const Index = () => {
               <a href="#" className="hover:text-white transition-colors">Support</a>
             </div>
             <p className="text-sm text-sidebar-foreground/60">
-              © 2025 Godey. All rights reserved.
+              © 2026 Champion Man Agency. All rights reserved.
             </p>
           </div>
         </div>
