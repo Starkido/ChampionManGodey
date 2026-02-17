@@ -262,7 +262,7 @@ export const FundWalletModal = ({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Processing time: 5-30 minutes after verification
+                  Processing time: 5-20 minutes after verification
                 </p>
               </div>
             </div>
