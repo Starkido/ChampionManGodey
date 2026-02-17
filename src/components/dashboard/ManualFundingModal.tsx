@@ -27,9 +27,9 @@ interface ManualFundingModalProps {
 }
 
 const MOMO_ACCOUNTS = [
-  { network: "MTN", number: "05494248172", name: "Champion Man GoDey" },
-  { network: "AirtelTigo", number: "0562200415", name: "Champion Man GoDey" },
-  { network: "Telecel", number: "0202739539", name: "Champion Man GoDey" },
+  { network: "MTN", number: "0541220558", name: "Joyce Ofori" },
+  // { network: "AirtelTigo", number: "0562200415", name: "Champion Man GoDey" },
+  // { network: "Telecel", number: "0202739539", name: "Champion Man GoDey" },
 ];
 
 export const ManualFundingModal = ({
@@ -190,8 +190,8 @@ export const ManualFundingModal = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MTN">MTN Mobile Money</SelectItem>
-                  <SelectItem value="AirtelTigo">AirtelTigo Money</SelectItem>
-                  <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                  {/* <SelectItem value="AirtelTigo">AirtelTigo Money</SelectItem> */}
+                  {/* <SelectItem value="Telecel">Telecel Cash</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
@@ -218,7 +218,7 @@ export const ManualFundingModal = ({
             <div className="text-sm">
               <p className="font-medium text-accent-foreground">Important</p>
               <p className="text-muted-foreground">
-                Your wallet will be credited after we verify the transaction. This usually takes 5-30 minutes.
+                Your wallet will be credited after we verify the transaction. This usually takes 5-20 minutes.
               </p>
             </div>
           </div>
