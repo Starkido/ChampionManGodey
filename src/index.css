@@ -56,7 +56,7 @@
     /* --network-airtel: 0 84% 50%; */
     --network-telecel: 199 89% 48%;
     --network-afa: 45 100% 40%;
-    --network-at-ishare: 280 70% 50%; /* Purple-ish */
+    --network-at-ishare: 0 84% 50%; /* Purple-ish */
     --network-at-bigtime: 200 80% 55%; /* Bright blue */
 
     /* Success/Info states */
