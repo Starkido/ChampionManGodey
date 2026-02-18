@@ -85,6 +85,8 @@ export default {
           airtel: "hsl(var(--network-airtel))",
           telecel: "hsl(var(--network-telecel))",
           afa: "hsl(var(--network-afa))",
+          at-ishare: "hsl(var(--network-at-ishare))"
+          at-bigtime: "hsl(var(--network-at-bigtime))"
         },
       },
       borderRadius: {
