@@ -2445,7 +2445,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         type: "purchase",
         amount: totalAmount,
-        status: "processing",
+        status: "pending",
         reference,
       })
       .select()
