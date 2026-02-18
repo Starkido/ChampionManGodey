@@ -1,6 +1,13 @@
 import { cn } from "@/lib/utils";
 
-type NetworkType = "MTN" | "Airtel" | "Telecel" | "MTN_AFA";
+// type NetworkType = "MTN" | "Airtel" | "Telecel" | "MTN_AFA";
+type NetworkType =
+  | "MTN"
+  // | "Airtel"
+  | "Telecel"
+  | "MTN_AFA"
+  | "AT_iShare"
+  | "AT_BigTime";
 
 interface NetworkBadgeProps {
   network: NetworkType;
