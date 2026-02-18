@@ -10,7 +10,6 @@ interface NetworkBadgeProps {
 
 const networkStyles: Record<NetworkType, string> = {
   MTN: "bg-network-mtn text-black",
-  // Airtel: "bg-network-airtel text-white",
   Telecel: "bg-network-telecel text-white",
   MTN_AFA: "bg-network-afa text-black",
   AT_iShare: "bg-network-at-ishare text-white",   // new
@@ -19,7 +18,6 @@ const networkStyles: Record<NetworkType, string> = {
 
 const networkLabels: Record<NetworkType, string> = {
   MTN: "MTN",
-  // Airtel: "Airtel",
   Telecel: "Telecel",
   MTN_AFA: "MTN AFA",
   AT_iShare: "AT iShare"
