@@ -117,7 +117,7 @@ const Index = () => {
             <div className="flex items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: "0.3s" }}>
               <span className="text-sm text-muted-foreground">Supported Networks:</span>
               <NetworkBadge network="MTN" />
-              <NetworkBadge network="Airtel" />
+              {/* <NetworkBadge network="Airtel" /> */}
               <NetworkBadge network="Telecel" />
               <NetworkBadge network="MTN_AFA" />
               <NetworkBadge network="AT_iShare" />
