@@ -20,8 +20,8 @@ const networkLabels: Record<NetworkType, string> = {
   MTN: "MTN",
   Telecel: "Telecel",
   MTN_AFA: "MTN AFA",
-  AT_iShare: "AT iShare"
-  AT_BigTime: "AT BigTime"
+  AT_iShare: "AT iShare",
+  AT_BigTime: "AT BigTime",
 };
 
 export const NetworkBadge = ({ network, size = "md", className }: NetworkBadgeProps) => {
