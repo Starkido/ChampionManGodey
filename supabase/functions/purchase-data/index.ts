@@ -2948,15 +2948,34 @@ const DUPLICATE_WINDOW_MINUTES = 5;
 
 // AUTHORITATIVE Network ID Mapping from Agyengosoln API
 // Ishare (AirtelTigo) = 1, Telecel = 2, MTN = 3, BigTime = 4
+// const NETWORK_ID_MAP: Record<string, number> = {
+//   "ISHARE": 1,
+//   "AIRTELTIGO": 1,
+//   "AIRTEL": 1,       // Alias for AirtelTigo/Ishare
+//   "ATISHARE": 1,     // Alias for AT-Ishare
+//   "TELECEL": 2,
+//   "MTN": 3,
+//   "MTNAFA": 3,       // MTN_AFA maps to MTN at provider level
+//   "BIGTIME": 4,
+// };
+
+
 const NETWORK_ID_MAP: Record<string, number> = {
-  "ISHARE": 1,
-  "AIRTELTIGO": 1,
-  "AIRTEL": 1,       // Alias for AirtelTigo/Ishare
-  "ATISHARE": 1,     // Alias for AT-Ishare
-  "TELECEL": 2,
+  // MTN variants
   "MTN": 3,
-  "MTNAFA": 3,       // MTN_AFA maps to MTN at provider level
-  "BIGTIME": 4,
+  "MTNAFA": 3,       // MTN_AFA normalises to MTNAFA
+
+  // AirtelTigo / iShare variants (60-day expiry) → provider ID 1
+  "ATISHARE": 1,     // AT_iShare normalises to ATISHARE
+  "ISHARE": 1,       // legacy alias
+  "AIRTELTIGO": 1,   // legacy alias
+
+  // AirtelTigo BigTime (non-expiry) → provider ID 4
+  "ATBIGTIME": 4,    // AT_BigTime normalises to ATBIGTIME
+  "BIGTIME": 4,      // legacy alias
+
+  // Telecel
+  "TELECEL": 2,
 };
 
 // Normalize network name for consistent lookup
