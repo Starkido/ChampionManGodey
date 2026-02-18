@@ -57,7 +57,7 @@
     --network-telecel: 199 89% 48%;
     --network-afa: 45 100% 40%;
     --network-at-ishare: 0 84% 50%; /* Purple-ish */
-    --network-at-bigtime: 200 80% 55%; /* Bright blue */
+    --network-at-bigtime: 250 80% 55%; /* Deep blue */
 
     /* Success/Info states */
     --success: 142 76% 36%;
@@ -176,13 +176,22 @@
     @apply bg-[hsl(45,100%,50%)] text-black;
   }
 
-  .network-airtel {
+  /* .network-airtel {
     @apply bg-[hsl(0,84%,50%)] text-white;
-  }
+  } */
 
   .network-telecel {
     @apply bg-[hsl(199,89%,48%)] text-white;
   }
+
+  .network-at-ishare {
+    @apply bg-[hsl(0, 84%, 50%)] text-white;
+  }
+
+  .network-at-bigtime {
+    @apply bg-[hsl(250, 80%, 55%)] text-white;
+  }
+
 
   /* Tier badges */
   .tier-client {
