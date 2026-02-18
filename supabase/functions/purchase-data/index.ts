@@ -2402,37 +2402,75 @@ Deno.serve(async (req) => {
     // --------------------
     // Idempotency check
     // --------------------
-    console.log(`[PURCHASE-DATA][${VERSION}] Checking for existing transaction...`);
+    // console.log(`[PURCHASE-DATA][${VERSION}] Checking for existing transaction...`);
 
-    const { data: existingTx, error: existingTxError } = await supabaseAdmin
+    // const { data: existingTx, error: existingTxError } = await supabaseAdmin
+    //   .from("transactions")
+    //   .select("*")
+    //   .eq("reference", reference)
+    //   .maybeSingle();
+
+    // if (existingTxError) {
+    //   console.error(
+    //     `[PURCHASE-DATA][${VERSION}] Failed to check existing transaction:`,
+    //     existingTxError.message
+    //   );
+    //   throw existingTxError;
+    // }
+
+    // if (existingTx) {
+    //   console.log(`[PURCHASE-DATA][${VERSION}] Duplicate request detected`);
+    //   console.log(`[PURCHASE-DATA][${VERSION}] Returning previous result`);
+
+    //   return new Response(
+    //     JSON.stringify({
+    //       success: true,
+    //       message: "Already processed",
+    //       reference,
+    //       previous_result: existingTx,
+    //       _version: VERSION,
+    //     }),
+    //     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    //   );
+    // }
+
+    // --------------------
+    // IDEMPOTENCY LOCK (CORRECT PATTERN)
+    // --------------------
+    console.log(`[PURCHASE-DATA][${VERSION}] Creating processing transaction (idempotency lock)...`);
+
+    const { data: txInsert, error: txInsertError } = await supabaseAdmin
       .from("transactions")
-      .select("*")
-      .eq("reference", reference)
-      .maybeSingle();
+      .insert({
+        user_id: userId,
+        type: "purchase",
+        amount: totalAmount,
+        status: "processing",
+        reference,
+      })
+      .select()
+      .single();
 
-    if (existingTxError) {
-      console.error(
-        `[PURCHASE-DATA][${VERSION}] Failed to check existing transaction:`,
-        existingTxError.message
-      );
-      throw existingTxError;
+    if (txInsertError) {
+      if (txInsertError.code === "23505") {
+        console.log(`[PURCHASE-DATA][${VERSION}] Duplicate reference detected (unique constraint)`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Already processed",
+            reference,
+            _version: VERSION,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      throw txInsertError;
     }
 
-    if (existingTx) {
-      console.log(`[PURCHASE-DATA][${VERSION}] Duplicate request detected`);
-      console.log(`[PURCHASE-DATA][${VERSION}] Returning previous result`);
+console.log(`[PURCHASE-DATA][${VERSION}] Transaction lock created successfully`);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Already processed",
-          reference,
-          previous_result: existingTx,
-          _version: VERSION,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
 
 
@@ -2583,7 +2621,7 @@ Deno.serve(async (req) => {
           .eq("user_id", userId)
           .eq("type", "purchase")
           .eq("status", "success")
-          .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Last 5 minutes
+          // .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Last 5 minutes
           .order("created_at", { ascending: false })
           .limit(10);
 
@@ -2722,18 +2760,33 @@ Deno.serve(async (req) => {
     console.log(`[PURCHASE-DATA][${VERSION}] Delivery results:`, JSON.stringify(deliveryResults));
 
     // If some items failed, refund the failed amount
-    if (failedAmount > 0) {
-      console.log(`[PURCHASE-DATA][${VERSION}] Refunding ${failedAmount} for failed items`);
-      const { error: refundError } = await supabaseAdmin
-        .from("wallets")
-        .update({
-          balance: newBalance + failedAmount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", wallet.id);
+    // if (failedAmount > 0) {
+    //   console.log(`[PURCHASE-DATA][${VERSION}] Refunding ${failedAmount} for failed items`);
+    //   const { error: refundError } = await supabaseAdmin
+    //     .from("wallets")
+    //     .update({
+    //       balance: newBalance + failedAmount,
+    //       updated_at: new Date().toISOString()
+    //     })
+    //     .eq("id", wallet.id);
       
+    //   if (refundError) {
+    //     console.error(`[PURCHASE-DATA][${VERSION}] Refund error:`, refundError.message);
+    //   } else {
+    //     console.log(`[PURCHASE-DATA][${VERSION}] Refund successful`);
+    //   }
+    // }
+
+    if (failedAmount > 0) {
+      console.log(`[PURCHASE-DATA][${VERSION}] Refunding ${failedAmount} via atomic RPC`);
+    
+      const { error: refundError } = await supabaseAdmin.rpc("credit_wallet", {
+        _user_id: userId,
+        _amount: failedAmount,
+      });
+    
       if (refundError) {
-        console.error(`[PURCHASE-DATA][${VERSION}] Refund error:`, refundError.message);
+        console.error(`[PURCHASE-DATA][${VERSION}] Refund RPC failed:`, refundError.message);
       } else {
         console.log(`[PURCHASE-DATA][${VERSION}] Refund successful`);
       }
@@ -2750,22 +2803,40 @@ Deno.serve(async (req) => {
     const transactionStatus = successfulItemsForTx.length > 0 ? "success" : "failed";
     
     console.log(`[PURCHASE-DATA][${VERSION}] Creating transaction record with status: ${transactionStatus}`);
-    const { error: txError } = await supabaseAdmin
-      .from("transactions")
-      .insert({
-        user_id: userId,
-        type: "purchase",
-        amount: successfulAmount,
-        status: transactionStatus,
-        reference,
-        metadata: {
-          items: deliveryResults,
-          total_requested: totalAmount,
-          total_charged: successfulAmount,
-          refunded: failedAmount,
-          partial_success: successfulItemsForTx.length > 0 && successfulItemsForTx.length < deliveryResults.length,
-        },
-      });
+    // const { error: txError } = await supabaseAdmin
+    //   .from("transactions")
+    //   .insert({
+    //     user_id: userId,
+    //     type: "purchase",
+    //     amount: successfulAmount,
+    //     status: transactionStatus,
+    //     reference,
+    //     metadata: {
+    //       items: deliveryResults,
+    //       total_requested: totalAmount,
+    //       total_charged: successfulAmount,
+    //       refunded: failedAmount,
+    //       partial_success: successfulItemsForTx.length > 0 && successfulItemsForTx.length < deliveryResults.length,
+    //     },
+    //   });
+
+  const { error: txError }  = await supabaseAdmin
+    .from("transactions")
+    .update({
+      amount: successfulAmount,
+      status: transactionStatus,
+      metadata: {
+        items: deliveryResults,
+        total_requested: totalAmount,
+        total_charged: successfulAmount,
+        refunded: failedAmount,
+        partial_success:
+          successfulItemsForTx.length > 0 &&
+          successfulItemsForTx.length < deliveryResults.length,
+      },
+    })
+    .eq("reference", reference);
+
 
     if (txError) {
       console.log(`[PURCHASE-DATA][${VERSION}] Transaction insert error:`, txError.message);
