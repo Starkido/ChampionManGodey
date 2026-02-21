@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sender: "DataShop", // Your sender ID (max 11 chars)
+        sender: "Champion", // Your sender ID (max 11 chars)
         message: message,
         recipients: [formattedPhone],
       }),

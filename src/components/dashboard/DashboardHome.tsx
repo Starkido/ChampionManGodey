@@ -2331,6 +2331,858 @@
 // );
 
 
+// import { useState } from "react";
+// import { User } from "@supabase/supabase-js";
+// import { WalletCard } from "@/components/WalletCard";
+// import { NetworkBadge } from "@/components/NetworkBadge";
+// import { TierBadge } from "@/components/TierBadge";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { Badge } from "@/components/ui/badge";
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// import { Separator } from "@/components/ui/separator";
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogDescription,
+//   DialogHeader,
+//   DialogTitle,
+// } from "@/components/ui/dialog";
+// import {
+//   Sheet,
+//   SheetContent,
+//   SheetHeader,
+//   SheetTitle,
+//   SheetTrigger,
+// } from "@/components/ui/sheet";
+// import { useTransactions } from "@/hooks/useTransactions";
+// import { useCart } from "@/hooks/useCart";
+// import { usePricingTiers } from "@/hooks/usePricingTiers";
+// import { supabase } from "@/integrations/supabase/client";
+// import { Database } from "@/integrations/supabase/types";
+// import { cn } from "@/lib/utils";
+// import {
+//   Smartphone,
+//   TrendingUp,
+//   Clock,
+//   ArrowRight,
+//   Zap,
+//   ShoppingCart,
+//   Loader2,
+//   Trash2,
+//   Minus,
+//   Plus,
+//   Check,
+// } from "lucide-react";
+// import { toast } from "sonner";
+// import { formatDistanceToNow } from "date-fns";
+
+// type AppRole = Database["public"]["Enums"]["app_role"];
+// type Network = "MTN" | "AT_iShare" | "AT_BigTime" | "Telecel" | "MTN_AFA";
+
+// interface PurchaseResult {
+//   status: "success" | "failed" | "pending";
+// }
+
+// interface PricingTier {
+//   id: string;
+//   network: string;
+//   data_amount: string;
+//   package_name: string;
+//   price: number;
+// }
+
+// interface DashboardHomeProps {
+//   user: User;
+//   walletBalance: number;
+//   userRole: AppRole;
+//   onFundWallet: () => void;
+// }
+
+// const generateIdempotencyKey = () => crypto.randomUUID();
+
+// const networks: { id: Network; label: string; description?: string }[] = [
+//   { id: "MTN", label: "MTN" },
+//   { id: "AT_iShare", label: "AT iShare", description: "60-day expiry" },
+//   { id: "AT_BigTime", label: "AT BigTime", description: "Non-expiry" },
+//   { id: "Telecel", label: "Telecel" },
+//   { id: "MTN_AFA", label: "MTN AFA" },
+// ];
+
+// export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: DashboardHomeProps) => {
+//   const userName = user.user_metadata?.first_name || user.email?.split("@")[0] || "User";
+//   const { transactions, loading: transactionsLoading } = useTransactions(user.id, 5);
+//   const {
+//     addToCart,
+//     cartItems,
+//     cartTotal,
+//     removeFromCart,
+//     updateQuantity,
+//     clearCart,
+//   } = useCart(user.id);
+
+//   // Buy Data state
+//   const [selectedNetwork, setSelectedNetwork] = useState<Network>("MTN");
+//   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+//   const [phoneNumber, setPhoneNumber] = useState("");
+//   const [isPurchasing, setIsPurchasing] = useState(false);
+//   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+//   const { tiers, loading: tiersLoading } = usePricingTiers(userRole, selectedNetwork);
+//   const selectedTier = tiers.find((t) => t.id === selectedPackage);
+
+//   // Quick Buy dialog state
+//   const [quickBuyDialogOpen, setQuickBuyDialogOpen] = useState(false);
+//   const [selectedQuickBuyTier, setSelectedQuickBuyTier] = useState<PricingTier | null>(null);
+//   const [quickBuyPhoneNumber, setQuickBuyPhoneNumber] = useState("");
+//   const [isAddingQuickBuyToCart, setIsAddingQuickBuyToCart] = useState(false);
+//   const [isBuyingQuickBuyNow, setIsBuyingQuickBuyNow] = useState(false);
+
+//   // Get all tiers for quick buy dialog
+//   const { tiers: allTiers } = usePricingTiers(userRole);
+//   const hotPackages = allTiers
+//     .filter((tier) => tier.data_amount === "1GB" || tier.data_amount === "2GB")
+//     .slice(0, 10);
+
+//   // Calculate today's purchases
+//   const today = new Date();
+//   today.setHours(0, 0, 0, 0);
+//   const todaysPurchases = transactions.filter((tx) => {
+//     const txDate = new Date(tx.created_at);
+//     return tx.type === "purchase" && tx.status === "success" && txDate >= today;
+//   });
+//   const todaysSpent = todaysPurchases.reduce((sum, tx) => sum + tx.amount, 0);
+
+//   const validatePhone = (phone: string): boolean => {
+//     const phoneRegex = /^(0[235][0-9]{8}|233[235][0-9]{8})$/;
+//     return phoneRegex.test(phone.replace(/\s/g, ""));
+//   };
+
+//   // ── Buy Data handlers ──────────────────────────────────────────────────────
+
+//   const handlePurchase = async () => {
+//     if (!selectedPackage || !phoneNumber) {
+//       toast.error("Please select a package and enter a phone number");
+//       return;
+//     }
+//     if (!selectedTier) {
+//       toast.error("Invalid package selected");
+//       return;
+//     }
+//     if (walletBalance < selectedTier.price) {
+//       toast.error("Insufficient wallet balance. Please fund your wallet first.");
+//       return;
+//     }
+//     if (!validatePhone(phoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+
+//     setIsPurchasing(true);
+//     try {
+//       const idempotencyKey = generateIdempotencyKey();
+//       const { data, error } = await supabase.functions.invoke("purchase-data", {
+//         body: {
+//           idempotency_key: idempotencyKey,
+//           pricing_tier_id: selectedPackage,
+//           beneficiary_phone: phoneNumber.replace(/\s/g, ""),
+//           quantity: 1,
+//         },
+//       });
+
+//       if (error) {
+//         toast.error("Purchase failed. Please try again.");
+//         return;
+//       }
+//       if (data.error) {
+//         toast.error(data.error);
+//         return;
+//       }
+
+//       const successCount = data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+//       const failedCount = data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+
+//       if (successCount > 0 && failedCount === 0) {
+//         toast.success(`Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`, {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else if (successCount > 0) {
+//         toast.success(`Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else {
+//         toast.info(`Purchase processed. ${failedCount} item(s) failed. Amount refunded.`, {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       }
+
+//       setSelectedPackage(null);
+//       setPhoneNumber("");
+//       setSelectedNetwork("MTN");
+//       setTimeout(() => window.location.reload(), 1500);
+//     } catch (err) {
+//       toast.error("Purchase failed. Please try again.");
+//     } finally {
+//       setIsPurchasing(false);
+//     }
+//   };
+
+//   const handleAddToCart = async () => {
+//     if (!selectedPackage || !phoneNumber) {
+//       toast.error("Please select a package and enter a phone number");
+//       return;
+//     }
+//     if (!validatePhone(phoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+
+//     const success = await addToCart(selectedPackage, phoneNumber.replace(/\s/g, ""));
+//     if (success) {
+//       toast.success("Added to cart!");
+//       setSelectedPackage(null);
+//     }
+//   };
+
+//   const handleCheckout = async () => {
+//     if (cartItems.length === 0) {
+//       toast.error("Cart is empty");
+//       return;
+//     }
+//     if (walletBalance < cartTotal) {
+//       toast.error("Insufficient wallet balance. Please fund your wallet first.");
+//       return;
+//     }
+
+//     setIsCheckingOut(true);
+//     try {
+//       const idempotencyKey = generateIdempotencyKey();
+//       const { data, error } = await supabase.functions.invoke("purchase-data", {
+//         body: {
+//           idempotency_key: idempotencyKey,
+//           cart_items: cartItems.map((item) => ({
+//             pricing_tier_id: item.pricing_tier_id,
+//             beneficiary_phone: item.beneficiary_phone,
+//             quantity: item.quantity,
+//           })),
+//         },
+//       });
+
+//       if (error) {
+//         toast.error("Checkout failed. Please try again.");
+//         return;
+//       }
+//       if (data.error) {
+//         toast.error(data.error);
+//         return;
+//       }
+
+//       const successCount = data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+//       const failedCount = data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+
+//       if (successCount > 0 && failedCount === 0) {
+//         toast.success("Checkout successful! All data bundles are being processed.", {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else if (successCount > 0) {
+//         toast.success(`Checkout partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else {
+//         toast.info(`Checkout processed. ${failedCount} item(s) failed. Amount refunded.`, {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       }
+
+//       await clearCart();
+//       setSelectedPackage(null);
+//       setPhoneNumber("");
+//       setSelectedNetwork("MTN");
+//       setTimeout(() => window.location.reload(), 1500);
+//     } catch (err) {
+//       toast.error("Checkout failed. Please try again.");
+//     } finally {
+//       setIsCheckingOut(false);
+//     }
+//   };
+
+//   // ── Quick Buy handlers ─────────────────────────────────────────────────────
+
+//   const handleSelectQuickBuyPackage = (tier: PricingTier) => {
+//     setSelectedQuickBuyTier(tier);
+//     setQuickBuyPhoneNumber("");
+//   };
+
+//   const handleAddQuickBuyToCart = async () => {
+//     if (!selectedQuickBuyTier || !quickBuyPhoneNumber) {
+//       toast.error("Please enter a phone number");
+//       return;
+//     }
+//     if (!validatePhone(quickBuyPhoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+
+//     setIsAddingQuickBuyToCart(true);
+//     try {
+//       const success = await addToCart(selectedQuickBuyTier.id, quickBuyPhoneNumber.replace(/\s/g, ""));
+//       if (success) {
+//         toast.success("Added to cart!", {
+//           description: "Go to cart to proceed to checkout",
+//           duration: 5000,
+//         });
+//         setQuickBuyDialogOpen(false);
+//         setQuickBuyPhoneNumber("");
+//         setSelectedQuickBuyTier(null);
+//       }
+//     } catch (err) {
+//       toast.error("Failed to add to cart");
+//     } finally {
+//       setIsAddingQuickBuyToCart(false);
+//     }
+//   };
+
+//   const handleQuickBuyNow = async () => {
+//     if (!selectedQuickBuyTier || !quickBuyPhoneNumber) {
+//       toast.error("Please enter a phone number");
+//       return;
+//     }
+//     if (!validatePhone(quickBuyPhoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+//     if (walletBalance < Number(selectedQuickBuyTier.price || 0)) {
+//       toast.error("Insufficient wallet balance. Please fund your wallet first.");
+//       return;
+//     }
+
+//     setIsBuyingQuickBuyNow(true);
+//     try {
+//       const idempotencyKey = generateIdempotencyKey();
+//       const { data, error } = await supabase.functions.invoke("purchase-data", {
+//         body: {
+//           idempotency_key: idempotencyKey,
+//           pricing_tier_id: selectedQuickBuyTier.id,
+//           beneficiary_phone: quickBuyPhoneNumber.replace(/\s/g, ""),
+//           quantity: 1,
+//         },
+//       });
+
+//       if (error) {
+//         toast.error("Purchase failed. Please try again.");
+//         return;
+//       }
+//       if (data?.error) {
+//         toast.error(data.error);
+//         return;
+//       }
+
+//       const successCount = data?.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+//       const failedCount = data?.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+
+//       if (successCount > 0 && failedCount === 0) {
+//         toast.success(`Purchase successful! ${selectedQuickBuyTier.data_amount} sent to ${quickBuyPhoneNumber}`, {
+//           description: data?.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else if (successCount > 0) {
+//         toast.success(`Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
+//           description: data?.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else {
+//         toast.info(`Purchase processed. ${failedCount} item(s) failed. Amount refunded.`, {
+//           description: data?.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       }
+
+//       setQuickBuyDialogOpen(false);
+//       setQuickBuyPhoneNumber("");
+//       setSelectedQuickBuyTier(null);
+//       setTimeout(() => window.location.reload(), 1500);
+//     } catch (err) {
+//       toast.error("Purchase failed. Please try again.");
+//     } finally {
+//       setIsBuyingQuickBuyNow(false);
+//     }
+//   };
+
+//   const getNetworkLabel = (network: string): string => {
+//     const map: Record<string, string> = {
+//       MTN: "MTN",
+//       AT_iShare: "AT iShare",
+//       AT_BigTime: "AT BigTime",
+//       Telecel: "Telecel",
+//       MTN_AFA: "MTN AFA",
+//     };
+//     return map[network] || network;
+//   };
+
+//   // ── Cart Sheet (shared) ────────────────────────────────────────────────────
+
+//   const CartSheet = () => (
+//     <Sheet>
+//       <SheetTrigger asChild>
+//         <Button variant="outline" className="relative">
+//           <ShoppingCart className="w-4 h-4" />
+//           {cartItems.length > 0 && (
+//             <Badge
+//               className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
+//               variant="default"
+//             >
+//               {cartItems.length}
+//             </Badge>
+//           )}
+//         </Button>
+//       </SheetTrigger>
+//       <SheetContent className="w-full sm:max-w-md">
+//         <SheetHeader>
+//           <SheetTitle>Your Cart</SheetTitle>
+//         </SheetHeader>
+//         <div className="mt-6 space-y-4">
+//           {cartItems.length === 0 ? (
+//             <p className="text-center text-muted-foreground py-8">Your cart is empty</p>
+//           ) : (
+//             <>
+//               <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+//                 {cartItems.map((item) => (
+//                   <div key={item.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+//                     <div className="flex-1 min-w-0">
+//                       <div className="flex items-center gap-2">
+//                         <NetworkBadge network={(item.tier?.network || "MTN") as Network} size="sm" />
+//                         <span className="font-medium text-sm truncate">{item.tier?.data_amount}</span>
+//                       </div>
+//                       <p className="text-xs text-muted-foreground mt-1">{item.tier?.package_name}</p>
+//                       <p className="text-xs text-muted-foreground">To: {item.beneficiary_phone}</p>
+//                       <p className="text-sm font-semibold text-primary mt-1">
+//                         GHS {((item.tier?.price || 0) * item.quantity).toFixed(2)}
+//                       </p>
+//                     </div>
+//                     <div className="flex flex-col items-end gap-2">
+//                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeFromCart(item.id)}>
+//                         <Trash2 className="w-4 h-4 text-destructive" />
+//                       </Button>
+//                       <div className="flex items-center gap-1">
+//                         <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+//                           <Minus className="w-3 h-3" />
+//                         </Button>
+//                         <span className="w-6 text-center text-sm">{item.quantity}</span>
+//                         <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+//                           <Plus className="w-3 h-3" />
+//                         </Button>
+//                       </div>
+//                     </div>
+//                   </div>
+//                 ))}
+//               </div>
+//               <Separator />
+//               <div className="space-y-3">
+//                 <div className="flex justify-between text-sm">
+//                   <span className="text-muted-foreground">Subtotal</span>
+//                   <span className="font-semibold">GHS {cartTotal.toFixed(2)}</span>
+//                 </div>
+//                 <div className="flex justify-between text-sm">
+//                   <span className="text-muted-foreground">Wallet Balance</span>
+//                   <span className={cn("font-semibold", walletBalance < cartTotal ? "text-destructive" : "text-primary")}>
+//                     GHS {walletBalance.toFixed(2)}
+//                   </span>
+//                 </div>
+//                 <Button
+//                   className="w-full"
+//                   variant="gold"
+//                   disabled={isCheckingOut || cartItems.length === 0 || walletBalance < cartTotal}
+//                   onClick={handleCheckout}
+//                 >
+//                   {isCheckingOut ? (
+//                     <Loader2 className="w-4 h-4 animate-spin" />
+//                   ) : walletBalance < cartTotal ? (
+//                     "Insufficient Balance"
+//                   ) : (
+//                     `Checkout - GHS ${cartTotal.toFixed(2)}`
+//                   )}
+//                 </Button>
+//               </div>
+//             </>
+//           )}
+//         </div>
+//       </SheetContent>
+//     </Sheet>
+//   );
+
+//   // ── Render ─────────────────────────────────────────────────────────────────
+
+//   return (
+//     <div className="p-6 lg:p-8 space-y-8">
+//       {/* Welcome section */}
+//       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+//         <div>
+//           <h1 className="font-display text-2xl lg:text-3xl font-bold text-foreground">
+//             Welcome back, {userName}! 👋
+//           </h1>
+//           <p className="text-muted-foreground mt-1">
+//             Here's what's happening with your account today.
+//           </p>
+//         </div>
+//         <div className="flex items-center gap-3">
+//           <CartSheet />
+//           <Button variant="gold" onClick={() => { setQuickBuyDialogOpen(true); setSelectedQuickBuyTier(null); setQuickBuyPhoneNumber(""); }}>
+//             <Zap className="w-4 h-4" />
+//             Quick Buy
+//           </Button>
+//         </div>
+//       </div>
+
+//       {/* Wallet Card */}
+//       <div>
+//         <WalletCard balance={walletBalance} onFund={onFundWallet} />
+//       </div>
+
+//       {/* ── Buy Data Section (from BuyDataPage) ── */}
+//       <div className="space-y-6">
+//         <div>
+//           <h2 className="font-display text-2xl lg:text-3xl font-bold text-foreground">Buy Data</h2>
+//           <p className="text-muted-foreground mt-1">
+//             Purchase data bundles at <TierBadge tier={userRole} size="sm" className="inline-flex ml-1" /> prices
+//           </p>
+//           <p className="text-muted-foreground mt-1">
+//              Select a network and a data package to purchase, enter the beneficiary phone number and click on buy or add to cart to proceed to checkout.
+//           </p>
+//         </div>
+
+//         {/* Network Selection */}
+//         <Card>
+//           <CardHeader className="pb-4">
+//             <CardTitle className="text-lg">Select Network</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+//               {networks.map((network) => (
+//                 <button
+//                   key={network.id}
+//                   onClick={() => {
+//                     setSelectedNetwork(network.id);
+//                     setSelectedPackage(null);
+//                   }}
+//                   className={cn(
+//                     "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
+//                     selectedNetwork === network.id
+//                       ? "border-primary bg-primary/5"
+//                       : "border-border hover:border-primary/50"
+//                   )}
+//                 >
+//                   <NetworkBadge network={network.id} size="lg" />
+//                   <span className="text-sm font-medium text-center">{network.label}</span>
+//                   {network.description && (
+//                     <span className="text-xs text-muted-foreground text-center">{network.description}</span>
+//                   )}
+//                 </button>
+//               ))}
+//             </div>
+//           </CardContent>
+//         </Card>
+
+//         {/* Phone Number Input */}
+//         <Card>
+//           <CardHeader className="pb-4">
+//             <CardTitle className="text-lg">Beneficiary Phone Number</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="max-w-md">
+//               <Label htmlFor="phone" className="sr-only">Phone Number</Label>
+//               <div className="relative">
+//                 <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+//                 <Input
+//                   id="phone"
+//                   type="tel"
+//                   placeholder="e.g., 0241234567"
+//                   value={phoneNumber}
+//                   onChange={(e) => setPhoneNumber(e.target.value)}
+//                   className="pl-10"
+//                 />
+//               </div>
+//               <p className="text-xs text-muted-foreground mt-2">
+//                 Enter the phone number to receive the data bundle
+//               </p>
+//             </div>
+//           </CardContent>
+//         </Card>
+
+//         {/* Data Packages */}
+//         <Card>
+//           <CardHeader className="pb-4">
+//             <CardTitle className="text-lg">Select Data Package</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             {tiersLoading ? (
+//               <div className="flex items-center justify-center py-12">
+//                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
+//               </div>
+//             ) : tiers.length === 0 ? (
+//               <div className="text-center py-12 text-muted-foreground">
+//                 No packages available for this network
+//               </div>
+//             ) : (
+//               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+//                 {tiers.map((tier) => (
+//                   <button
+//                     key={tier.id}
+//                     onClick={() => setSelectedPackage(tier.id)}
+//                     className={cn(
+//                       "p-4 rounded-xl border-2 transition-all text-left relative",
+//                       selectedPackage === tier.id
+//                         ? "border-primary bg-primary/5"
+//                         : "border-border hover:border-primary/50"
+//                     )}
+//                   >
+//                     {selectedPackage === tier.id && (
+//                       <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+//                         <Check className="w-4 h-4 text-primary-foreground" />
+//                       </div>
+//                     )}
+//                     <p className="font-display text-2xl font-bold text-foreground">{tier.data_amount}</p>
+//                     <p className="text-sm text-muted-foreground mt-1">{tier.package_name}</p>
+//                     <p className="text-lg font-semibold text-primary mt-3">
+//                       GHS {Number(tier.price).toFixed(2)}
+//                     </p>
+//                   </button>
+//                 ))}
+//               </div>
+//             )}
+//           </CardContent>
+//         </Card>
+
+//         {/* Action Buttons */}
+//         {selectedTier && (
+//           <div className="flex flex-col sm:flex-row gap-3 p-4 bg-card rounded-xl border border-border">
+//             <div className="flex-1">
+//               <p className="text-sm text-muted-foreground">Selected Package</p>
+//               <p className="font-semibold text-foreground">
+//                 {selectedTier.data_amount} - {networks.find((n) => n.id === selectedNetwork)?.label || selectedNetwork}
+//               </p>
+//               <p className="text-primary font-bold">GHS {Number(selectedTier.price).toFixed(2)}</p>
+//             </div>
+//             <div className="flex gap-3">
+//               <Button variant="outline" onClick={handleAddToCart} disabled={!phoneNumber}>
+//                 <ShoppingCart className="w-4 h-4" />
+//                 Add to Cart
+//               </Button>
+//               <Button
+//                 variant="gold"
+//                 onClick={handlePurchase}
+//                 disabled={isPurchasing || !phoneNumber || walletBalance < selectedTier.price}
+//               >
+//                 {isPurchasing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buy Now"}
+//               </Button>
+//             </div>
+//           </div>
+//         )}
+//       </div>
+
+//       {/* Today's Purchases */}
+//       <div className="grid sm:grid-cols-1 gap-4">
+//         <div className="p-6 rounded-2xl bg-card border border-border">
+//           <div className="flex items-center gap-3 mb-4">
+//             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+//               <Smartphone className="w-5 h-5 text-primary" />
+//             </div>
+//             <span className="text-sm text-muted-foreground">Today's Purchases</span>
+//           </div>
+//           <p className="font-display text-3xl font-bold text-foreground">{todaysPurchases.length}</p>
+//           <p className="text-sm text-muted-foreground mt-1">GHS {todaysSpent.toFixed(2)} spent</p>
+//         </div>
+//       </div>
+
+//       {/* Recent transactions */}
+//       <div>
+//         <div className="flex items-center justify-between mb-4">
+//           <h2 className="font-display text-lg font-semibold text-foreground">Recent Activity</h2>
+//           <Button variant="ghost" size="sm">
+//             View All
+//             <ArrowRight className="w-4 h-4" />
+//           </Button>
+//         </div>
+
+//         <div className="rounded-xl border border-border overflow-hidden">
+//           {transactionsLoading ? (
+//             <div className="p-8 text-center">
+//               <div className="animate-pulse text-muted-foreground">Loading...</div>
+//             </div>
+//           ) : transactions.length > 0 ? (
+//             <div className="divide-y divide-border">
+//               {transactions.slice(0, 5).map((tx) => (
+//                 <div key={tx.id} className="p-4 bg-card hover:bg-muted/50 transition-colors flex items-center gap-4">
+//                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+//                     tx.type === "wallet_funding" || tx.type === "commission" ? "bg-success/10" : "bg-primary/10"
+//                   }`}>
+//                     {tx.type === "wallet_funding" || tx.type === "commission" ? (
+//                       <TrendingUp className="w-5 h-5 text-success" />
+//                     ) : (
+//                       <Smartphone className="w-5 h-5 text-primary" />
+//                     )}
+//                   </div>
+//                   <div className="flex-1">
+//                     <p className="font-medium text-foreground">
+//                       {tx.type === "wallet_funding"
+//                         ? "Wallet Funded"
+//                         : tx.type === "commission"
+//                         ? "Referral Commission"
+//                         : "Data Purchase"}
+//                     </p>
+//                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
+//                       <Clock className="w-3 h-3" />
+//                       {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+//                     </div>
+//                   </div>
+//                   <div className="text-right">
+//                     <p className={`font-semibold ${
+//                       tx.type === "wallet_funding" || tx.type === "commission" ? "text-success" : "text-foreground"
+//                     }`}>
+//                       {tx.type === "wallet_funding" || tx.type === "commission" ? "+" : "-"}GHS {tx.amount.toFixed(2)}
+//                     </p>
+//                     <span className={`text-xs px-2 py-0.5 rounded-full ${
+//                       tx.status === "success"
+//                         ? "bg-success/10 text-success"
+//                         : tx.status === "pending"
+//                         ? "bg-yellow-500/10 text-yellow-600"
+//                         : "bg-destructive/10 text-destructive"
+//                     }`}>
+//                       {tx.status}
+//                     </span>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           ) : (
+//             <div className="p-8 text-center">
+//               <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+//               <p className="text-muted-foreground">No transactions yet</p>
+//               <p className="text-sm text-muted-foreground">Fund your wallet to start purchasing data bundles</p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {/* Quick Buy Dialog */}
+//       <Dialog open={quickBuyDialogOpen} onOpenChange={setQuickBuyDialogOpen}>
+//         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+//           <DialogHeader>
+//             <DialogTitle>Quick Buy Data</DialogTitle>
+//             <DialogDescription>
+//               Select a popular data package and add recipient phone number to cart
+//             </DialogDescription>
+//           </DialogHeader>
+//           <div className="space-y-6 py-4">
+//             {!selectedQuickBuyTier ? (
+//               hotPackages.length === 0 ? (
+//                 <div className="text-center py-12 text-muted-foreground">No packages available</div>
+//               ) : (
+//                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+//                   {hotPackages.map((tier) => (
+//                     <button
+//                       key={tier.id}
+//                       onClick={() => handleSelectQuickBuyPackage(tier)}
+//                       className="p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:shadow-md transition-all text-left"
+//                     >
+//                       <div className="flex items-center gap-2 mb-2">
+//                         <NetworkBadge network={tier.network as Network} size="sm" />
+//                         <span className="text-xs text-muted-foreground">{getNetworkLabel(tier.network)}</span>
+//                       </div>
+//                       <p className="font-display text-xl font-bold text-foreground">{tier.data_amount}</p>
+//                       <p className="text-sm text-muted-foreground mt-1">{tier.package_name}</p>
+//                       <p className="text-lg font-semibold text-primary mt-3">
+//                         GHS {Number(tier.price).toFixed(2)}
+//                       </p>
+//                     </button>
+//                   ))}
+//                 </div>
+//               )
+//             ) : (
+//               <>
+//                 <div className="p-4 bg-muted/50 rounded-xl border border-border">
+//                   <div className="flex items-center justify-between mb-4">
+//                     <div>
+//                       <div className="flex items-center gap-2 mb-2">
+//                         <NetworkBadge network={selectedQuickBuyTier.network as Network} size="sm" />
+//                         <span className="font-medium text-sm">{selectedQuickBuyTier.data_amount}</span>
+//                         <span className="text-xs text-muted-foreground">{getNetworkLabel(selectedQuickBuyTier.network)}</span>
+//                       </div>
+//                       <p className="text-sm text-muted-foreground">{selectedQuickBuyTier.package_name}</p>
+//                       <p className="text-lg font-semibold text-primary mt-2">
+//                         GHS {Number(selectedQuickBuyTier.price).toFixed(2)}
+//                       </p>
+//                     </div>
+//                     <Button variant="ghost" size="sm" onClick={() => setSelectedQuickBuyTier(null)}>
+//                       Change Package
+//                     </Button>
+//                   </div>
+//                 </div>
+
+//                 <div className="space-y-2">
+//                   <Label htmlFor="quick-buy-phone">Beneficiary Phone Number</Label>
+//                   <div className="relative">
+//                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+//                     <Input
+//                       id="quick-buy-phone"
+//                       type="tel"
+//                       placeholder="e.g., 0241234567"
+//                       value={quickBuyPhoneNumber}
+//                       onChange={(e) => setQuickBuyPhoneNumber(e.target.value)}
+//                       className="pl-10"
+//                       onKeyDown={(e) => { if (e.key === "Enter") handleAddQuickBuyToCart(); }}
+//                     />
+//                   </div>
+//                   <p className="text-xs text-muted-foreground">Enter the phone number to receive the data bundle</p>
+//                 </div>
+
+//                 <div className="flex gap-3">
+//                   <Button
+//                     variant="outline"
+//                     onClick={() => { setSelectedQuickBuyTier(null); setQuickBuyPhoneNumber(""); }}
+//                     className="flex-1"
+//                   >
+//                     Back
+//                   </Button>
+//                   <Button
+//                     variant="gold"
+//                     onClick={handleAddQuickBuyToCart}
+//                     disabled={!quickBuyPhoneNumber || isAddingQuickBuyToCart}
+//                     className="flex-1"
+//                   >
+//                     {isAddingQuickBuyToCart ? (
+//                       <><Loader2 className="w-4 h-4 animate-spin mr-2" />Adding...</>
+//                     ) : (
+//                       <><ShoppingCart className="w-4 h-4 mr-2" />Add to Cart</>
+//                     )}
+//                   </Button>
+//                   <Button
+//                     variant="default"
+//                     onClick={handleQuickBuyNow}
+//                     disabled={!quickBuyPhoneNumber || isBuyingQuickBuyNow}
+//                     className="flex-1"
+//                   >
+//                     {isBuyingQuickBuyNow ? (
+//                       <><Loader2 className="w-4 h-4 animate-spin mr-2" />Buying...</>
+//                     ) : (
+//                       <><Zap className="w-4 h-4 mr-2" />Buy Now</>
+//                     )}
+//                   </Button>
+//                 </div>
+//               </>
+//             )}
+//           </div>
+//         </DialogContent>
+//       </Dialog>
+//     </div>
+//   );
+// };
+
+// const Receipt = ({ className }: { className?: string }) => (
+//   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+//     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+//   </svg>
+// );
+
+
+
 import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { WalletCard } from "@/components/WalletCard";
@@ -2356,6 +3208,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCart } from "@/hooks/useCart";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
@@ -2374,6 +3233,7 @@ import {
   Minus,
   Plus,
   Check,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -2410,8 +3270,14 @@ const networks: { id: Network; label: string; description?: string }[] = [
   { id: "MTN_AFA", label: "MTN AFA" },
 ];
 
-export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: DashboardHomeProps) => {
-  const userName = user.user_metadata?.first_name || user.email?.split("@")[0] || "User";
+export const DashboardHome = ({
+  user,
+  walletBalance,
+  userRole,
+  onFundWallet,
+}: DashboardHomeProps) => {
+  const userName =
+    user.user_metadata?.first_name || user.email?.split("@")[0] || "User";
   const { transactions, loading: transactionsLoading } = useTransactions(user.id, 5);
   const {
     addToCart,
@@ -2422,30 +3288,42 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
     clearCart,
   } = useCart(user.id);
 
-  // Buy Data state
-  const [selectedNetwork, setSelectedNetwork] = useState<Network>("MTN");
+  // ── Buy Data state ──────────────────────────────────────────────────────
+  const [selectedNetwork, setSelectedNetwork] = useState<Network | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const { tiers, loading: tiersLoading } = usePricingTiers(userRole, selectedNetwork);
+  const { tiers, loading: tiersLoading } = usePricingTiers(
+    userRole,
+    selectedNetwork ?? undefined
+  );
   const selectedTier = tiers.find((t) => t.id === selectedPackage);
 
-  // Quick Buy dialog state
+  const validatePhone = (phone: string): boolean =>
+    /^(0[235][0-9]{8}|233[235][0-9]{8})$/.test(phone.replace(/\s/g, ""));
+
+  // All three fields must be filled and phone valid before actions unlock
+  const orderReady =
+    validatePhone(phoneNumber) &&
+    selectedNetwork !== null &&
+    selectedPackage !== null;
+
+  // ── Quick Buy dialog state ──────────────────────────────────────────────
   const [quickBuyDialogOpen, setQuickBuyDialogOpen] = useState(false);
-  const [selectedQuickBuyTier, setSelectedQuickBuyTier] = useState<PricingTier | null>(null);
+  const [selectedQuickBuyTier, setSelectedQuickBuyTier] =
+    useState<PricingTier | null>(null);
   const [quickBuyPhoneNumber, setQuickBuyPhoneNumber] = useState("");
   const [isAddingQuickBuyToCart, setIsAddingQuickBuyToCart] = useState(false);
   const [isBuyingQuickBuyNow, setIsBuyingQuickBuyNow] = useState(false);
 
-  // Get all tiers for quick buy dialog
   const { tiers: allTiers } = usePricingTiers(userRole);
   const hotPackages = allTiers
-    .filter((tier) => tier.data_amount === "1GB" || tier.data_amount === "2GB")
+    .filter((t) => t.data_amount === "1GB" || t.data_amount === "2GB")
     .slice(0, 10);
 
-  // Calculate today's purchases
+  // Today's purchases
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todaysPurchases = transactions.filter((tx) => {
@@ -2454,74 +3332,65 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
   });
   const todaysSpent = todaysPurchases.reduce((sum, tx) => sum + tx.amount, 0);
 
-  const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^(0[235][0-9]{8}|233[235][0-9]{8})$/;
-    return phoneRegex.test(phone.replace(/\s/g, ""));
+  // ── Handlers ───────────────────────────────────────────────────────────
+
+  const handleNetworkChange = (network: Network) => {
+    setSelectedNetwork(network);
+    setSelectedPackage(null);
   };
 
-  // ── Buy Data handlers ──────────────────────────────────────────────────────
-
   const handlePurchase = async () => {
-    if (!selectedPackage || !phoneNumber) {
-      toast.error("Please select a package and enter a phone number");
-      return;
-    }
-    if (!selectedTier) {
-      toast.error("Invalid package selected");
+    if (!selectedPackage || !phoneNumber || !selectedTier) {
+      toast.error("Please complete all fields before purchasing");
       return;
     }
     if (walletBalance < selectedTier.price) {
       toast.error("Insufficient wallet balance. Please fund your wallet first.");
       return;
     }
-    if (!validatePhone(phoneNumber)) {
-      toast.error("Please enter a valid Ghana phone number");
-      return;
-    }
 
     setIsPurchasing(true);
     try {
-      const idempotencyKey = generateIdempotencyKey();
       const { data, error } = await supabase.functions.invoke("purchase-data", {
         body: {
-          idempotency_key: idempotencyKey,
+          idempotency_key: generateIdempotencyKey(),
           pricing_tier_id: selectedPackage,
           beneficiary_phone: phoneNumber.replace(/\s/g, ""),
           quantity: 1,
         },
       });
 
-      if (error) {
-        toast.error("Purchase failed. Please try again.");
-        return;
-      }
-      if (data.error) {
-        toast.error(data.error);
+      if (error || data?.error) {
+        toast.error(data?.error || "Purchase failed. Please try again.");
         return;
       }
 
-      const successCount = data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
-      const failedCount = data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+      const successCount =
+        data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+      const failedCount =
+        data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
 
       if (successCount > 0 && failedCount === 0) {
-        toast.success(`Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`, {
-          description: data.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.success(
+          `Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`,
+          { description: data.reference ? `Ref: ${data.reference}` : undefined }
+        );
       } else if (successCount > 0) {
-        toast.success(`Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
-          description: data.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.success(
+          `Partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+          { description: data.reference ? `Ref: ${data.reference}` : undefined }
+        );
       } else {
-        toast.info(`Purchase processed. ${failedCount} item(s) failed. Amount refunded.`, {
+        toast.info(`Failed. Amount refunded.`, {
           description: data.reference ? `Ref: ${data.reference}` : undefined,
         });
       }
 
       setSelectedPackage(null);
       setPhoneNumber("");
-      setSelectedNetwork("MTN");
+      setSelectedNetwork(null);
       setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
+    } catch {
       toast.error("Purchase failed. Please try again.");
     } finally {
       setIsPurchasing(false);
@@ -2530,14 +3399,13 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
 
   const handleAddToCart = async () => {
     if (!selectedPackage || !phoneNumber) {
-      toast.error("Please select a package and enter a phone number");
+      toast.error("Please complete all fields first");
       return;
     }
     if (!validatePhone(phoneNumber)) {
       toast.error("Please enter a valid Ghana phone number");
       return;
     }
-
     const success = await addToCart(selectedPackage, phoneNumber.replace(/\s/g, ""));
     if (success) {
       toast.success("Added to cart!");
@@ -2551,16 +3419,15 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       return;
     }
     if (walletBalance < cartTotal) {
-      toast.error("Insufficient wallet balance. Please fund your wallet first.");
+      toast.error("Insufficient wallet balance.");
       return;
     }
 
     setIsCheckingOut(true);
     try {
-      const idempotencyKey = generateIdempotencyKey();
       const { data, error } = await supabase.functions.invoke("purchase-data", {
         body: {
-          idempotency_key: idempotencyKey,
+          idempotency_key: generateIdempotencyKey(),
           cart_items: cartItems.map((item) => ({
             pricing_tier_id: item.pricing_tier_id,
             beneficiary_phone: item.beneficiary_phone,
@@ -2569,28 +3436,27 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
         },
       });
 
-      if (error) {
-        toast.error("Checkout failed. Please try again.");
-        return;
-      }
-      if (data.error) {
-        toast.error(data.error);
+      if (error || data?.error) {
+        toast.error(data?.error || "Checkout failed. Please try again.");
         return;
       }
 
-      const successCount = data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
-      const failedCount = data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+      const successCount =
+        data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+      const failedCount =
+        data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
 
       if (successCount > 0 && failedCount === 0) {
-        toast.success("Checkout successful! All data bundles are being processed.", {
+        toast.success("Checkout successful! All bundles are being processed.", {
           description: data.reference ? `Ref: ${data.reference}` : undefined,
         });
       } else if (successCount > 0) {
-        toast.success(`Checkout partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
-          description: data.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.success(
+          `Partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+          { description: data.reference ? `Ref: ${data.reference}` : undefined }
+        );
       } else {
-        toast.info(`Checkout processed. ${failedCount} item(s) failed. Amount refunded.`, {
+        toast.info(`Failed. Amount refunded.`, {
           description: data.reference ? `Ref: ${data.reference}` : undefined,
         });
       }
@@ -2598,22 +3464,16 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       await clearCart();
       setSelectedPackage(null);
       setPhoneNumber("");
-      setSelectedNetwork("MTN");
+      setSelectedNetwork(null);
       setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
+    } catch {
       toast.error("Checkout failed. Please try again.");
     } finally {
       setIsCheckingOut(false);
     }
   };
 
-  // ── Quick Buy handlers ─────────────────────────────────────────────────────
-
-  const handleSelectQuickBuyPackage = (tier: PricingTier) => {
-    setSelectedQuickBuyTier(tier);
-    setQuickBuyPhoneNumber("");
-  };
-
+  // Quick Buy handlers
   const handleAddQuickBuyToCart = async () => {
     if (!selectedQuickBuyTier || !quickBuyPhoneNumber) {
       toast.error("Please enter a phone number");
@@ -2623,10 +3483,12 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       toast.error("Please enter a valid Ghana phone number");
       return;
     }
-
     setIsAddingQuickBuyToCart(true);
     try {
-      const success = await addToCart(selectedQuickBuyTier.id, quickBuyPhoneNumber.replace(/\s/g, ""));
+      const success = await addToCart(
+        selectedQuickBuyTier.id,
+        quickBuyPhoneNumber.replace(/\s/g, "")
+      );
       if (success) {
         toast.success("Added to cart!", {
           description: "Go to cart to proceed to checkout",
@@ -2636,7 +3498,7 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
         setQuickBuyPhoneNumber("");
         setSelectedQuickBuyTier(null);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to add to cart");
     } finally {
       setIsAddingQuickBuyToCart(false);
@@ -2653,72 +3515,59 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       return;
     }
     if (walletBalance < Number(selectedQuickBuyTier.price || 0)) {
-      toast.error("Insufficient wallet balance. Please fund your wallet first.");
+      toast.error("Insufficient wallet balance.");
       return;
     }
 
     setIsBuyingQuickBuyNow(true);
     try {
-      const idempotencyKey = generateIdempotencyKey();
       const { data, error } = await supabase.functions.invoke("purchase-data", {
         body: {
-          idempotency_key: idempotencyKey,
+          idempotency_key: generateIdempotencyKey(),
           pricing_tier_id: selectedQuickBuyTier.id,
           beneficiary_phone: quickBuyPhoneNumber.replace(/\s/g, ""),
           quantity: 1,
         },
       });
 
-      if (error) {
-        toast.error("Purchase failed. Please try again.");
-        return;
-      }
-      if (data?.error) {
-        toast.error(data.error);
+      if (error || data?.error) {
+        toast.error(data?.error || "Purchase failed.");
         return;
       }
 
-      const successCount = data?.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
-      const failedCount = data?.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
+      const successCount =
+        data?.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
+      const failedCount =
+        data?.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
 
       if (successCount > 0 && failedCount === 0) {
-        toast.success(`Purchase successful! ${selectedQuickBuyTier.data_amount} sent to ${quickBuyPhoneNumber}`, {
-          description: data?.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.success(
+          `Purchase successful! ${selectedQuickBuyTier.data_amount} sent to ${quickBuyPhoneNumber}`,
+          { description: data?.reference ? `Ref: ${data.reference}` : undefined }
+        );
       } else if (successCount > 0) {
-        toast.success(`Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`, {
-          description: data?.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.success(
+          `Partially completed! ${successCount} succeeded, ${failedCount} failed.`
+        );
       } else {
-        toast.info(`Purchase processed. ${failedCount} item(s) failed. Amount refunded.`, {
-          description: data?.reference ? `Ref: ${data.reference}` : undefined,
-        });
+        toast.info("Failed. Amount refunded.");
       }
 
       setQuickBuyDialogOpen(false);
       setQuickBuyPhoneNumber("");
       setSelectedQuickBuyTier(null);
       setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
+    } catch {
       toast.error("Purchase failed. Please try again.");
     } finally {
       setIsBuyingQuickBuyNow(false);
     }
   };
 
-  const getNetworkLabel = (network: string): string => {
-    const map: Record<string, string> = {
-      MTN: "MTN",
-      AT_iShare: "AT iShare",
-      AT_BigTime: "AT BigTime",
-      Telecel: "Telecel",
-      MTN_AFA: "MTN AFA",
-    };
-    return map[network] || network;
-  };
+  const getNetworkLabel = (network: string) =>
+    networks.find((n) => n.id === network)?.label ?? network;
 
-  // ── Cart Sheet (shared) ────────────────────────────────────────────────────
-
+  // ── Cart Sheet ─────────────────────────────────────────────────────────
   const CartSheet = () => (
     <Sheet>
       <SheetTrigger asChild>
@@ -2740,33 +3589,62 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
         </SheetHeader>
         <div className="mt-6 space-y-4">
           {cartItems.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Your cart is empty</p>
+            <p className="text-center text-muted-foreground py-8">
+              Your cart is empty
+            </p>
           ) : (
             <>
               <div className="space-y-3 max-h-[60vh] overflow-y-auto">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <NetworkBadge network={(item.tier?.network || "MTN") as Network} size="sm" />
-                        <span className="font-medium text-sm truncate">{item.tier?.data_amount}</span>
+                        <NetworkBadge
+                          network={(item.tier?.network || "MTN") as Network}
+                          size="sm"
+                        />
+                        <span className="font-medium text-sm truncate">
+                          {item.tier?.data_amount}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{item.tier?.package_name}</p>
-                      <p className="text-xs text-muted-foreground">To: {item.beneficiary_phone}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {item.tier?.package_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        To: {item.beneficiary_phone}
+                      </p>
                       <p className="text-sm font-semibold text-primary mt-1">
                         GHS {((item.tier?.price || 0) * item.quantity).toFixed(2)}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeFromCart(item.id)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => removeFromCart(item.id)}
+                      >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        >
                           <Minus className="w-3 h-3" />
                         </Button>
                         <span className="w-6 text-center text-sm">{item.quantity}</span>
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        >
                           <Plus className="w-3 h-3" />
                         </Button>
                       </div>
@@ -2782,14 +3660,21 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Wallet Balance</span>
-                  <span className={cn("font-semibold", walletBalance < cartTotal ? "text-destructive" : "text-primary")}>
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      walletBalance < cartTotal ? "text-destructive" : "text-primary"
+                    )}
+                  >
                     GHS {walletBalance.toFixed(2)}
                   </span>
                 </div>
                 <Button
                   className="w-full"
                   variant="gold"
-                  disabled={isCheckingOut || cartItems.length === 0 || walletBalance < cartTotal}
+                  disabled={
+                    isCheckingOut || cartItems.length === 0 || walletBalance < cartTotal
+                  }
                   onClick={handleCheckout}
                 >
                   {isCheckingOut ? (
@@ -2808,11 +3693,11 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
     </Sheet>
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
-      {/* Welcome section */}
+      {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl lg:text-3xl font-bold text-foreground">
@@ -2824,7 +3709,14 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
         </div>
         <div className="flex items-center gap-3">
           <CartSheet />
-          <Button variant="gold" onClick={() => { setQuickBuyDialogOpen(true); setSelectedQuickBuyTier(null); setQuickBuyPhoneNumber(""); }}>
+          <Button
+            variant="gold"
+            onClick={() => {
+              setQuickBuyDialogOpen(true);
+              setSelectedQuickBuyTier(null);
+              setQuickBuyPhoneNumber("");
+            }}
+          >
             <Zap className="w-4 h-4" />
             Quick Buy
           </Button>
@@ -2832,63 +3724,125 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
       </div>
 
       {/* Wallet Card */}
-      <div>
-        <WalletCard balance={walletBalance} onFund={onFundWallet} />
-      </div>
+      <WalletCard balance={walletBalance} onFund={onFundWallet} />
 
-      {/* ── Buy Data Section (from BuyDataPage) ── */}
-      <div className="space-y-6">
+      {/* ── Buy Data Section ─────────────────────────────────────────────── */}
+      <div className="space-y-4">
         <div>
-          <h2 className="font-display text-2xl lg:text-3xl font-bold text-foreground">Buy Data</h2>
+          <h2 className="font-display text-xl lg:text-2xl font-bold text-foreground">
+            Buy Data
+          </h2>
           <p className="text-muted-foreground mt-1">
-            Purchase data bundles at <TierBadge tier={userRole} size="sm" className="inline-flex ml-1" /> prices
+            Purchase data bundles at{" "}
+            <TierBadge tier={userRole} size="sm" className="inline-flex ml-1" />{" "}
+            prices
           </p>
         </div>
 
-        {/* Network Selection */}
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Select Network</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Select a network and package, then enter the beneficiary phone number to proceed.
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {networks.map((network) => (
-                <button
-                  key={network.id}
-                  onClick={() => {
-                    setSelectedNetwork(network.id);
-                    setSelectedPackage(null);
-                  }}
-                  className={cn(
-                    "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
-                    selectedNetwork === network.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                >
-                  <NetworkBadge network={network.id} size="lg" />
-                  <span className="text-sm font-medium text-center">{network.label}</span>
-                  {network.description && (
-                    <span className="text-xs text-muted-foreground text-center">{network.description}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          <CardContent className="space-y-6 pt-4">
 
-        {/* Phone Number Input */}
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Beneficiary Phone Number</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-w-md">
-              <Label htmlFor="phone" className="sr-only">Phone Number</Label>
-              <div className="relative">
+            {/* Network Selection — always interactive */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Select Network</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {networks.map((network) => (
+                  <button
+                    key={network.id}
+                    onClick={() => handleNetworkChange(network.id)}
+                    className={cn(
+                      "p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                      selectedNetwork === network.id
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <NetworkBadge network={network.id} size="lg" />
+                    <span className="text-xs font-medium text-center leading-tight">
+                      {network.label}
+                    </span>
+                    {network.description && (
+                      <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                        {network.description}
+                      </span>
+                    )}
+                    {selectedNetwork === network.id && (
+                      <Check className="w-3 h-3 text-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Package Dropdown — active as soon as a network is chosen */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Choose Data Package</Label>
+              <div className="max-w-md">
+                {tiersLoading && selectedNetwork ? (
+                  <div className="flex items-center gap-2 px-4 py-3 border rounded-xl border-border text-muted-foreground text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading packages…
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedPackage ?? ""}
+                    onValueChange={(val) => setSelectedPackage(val)}
+                    disabled={!selectedNetwork || tiersLoading}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue
+                        placeholder={
+                          !selectedNetwork
+                            ? "Select a network first"
+                            : tiers.length === 0
+                            ? "No packages available"
+                            : "Pick a data package…"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {tiers.map((tier) => (
+                        <SelectItem key={tier.id} value={tier.id}>
+                          <div className="flex items-center gap-4 w-full">
+                            <span className="font-semibold">{tier.data_amount}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {tier.package_name}
+                            </span>
+                            <span className="text-primary font-bold ml-auto">
+                              GHS {Number(tier.price).toFixed(2)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedNetwork && tiers.length > 0
+                  ? `${tiers.length} packages available for ${getNetworkLabel(selectedNetwork)}.`
+                  : "Select a network above to see available packages."}
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Phone Number — always interactive */}
+            <div className="space-y-2">
+              <Label htmlFor="dash-phone" className="text-base font-semibold">
+                Beneficiary Phone Number
+              </Label>
+              <div className="relative max-w-md">
                 <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
-                  id="phone"
+                  id="dash-phone"
                   type="tel"
                   placeholder="e.g., 0241234567"
                   value={phoneNumber}
@@ -2896,82 +3850,100 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                   className="pl-10"
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Enter the phone number to receive the data bundle
+              <p className="text-xs text-muted-foreground">
+                Enter the Ghana number that will receive the data.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Data Packages */}
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Select Data Package</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tiersLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : tiers.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No packages available for this network
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {tiers.map((tier) => (
-                  <button
-                    key={tier.id}
-                    onClick={() => setSelectedPackage(tier.id)}
+        {/* Order Summary — always visible, lights up when orderReady */}
+        <Card
+          className={cn(
+            "border transition-colors",
+            orderReady ? "border-primary/30 bg-primary/5" : "border-border bg-muted/30"
+          )}
+        >
+          <CardContent className="pt-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-4 flex-1">
+                <div
+                  className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                    orderReady ? "bg-primary/10" : "bg-muted"
+                  )}
+                >
+                  <Package
                     className={cn(
-                      "p-4 rounded-xl border-2 transition-all text-left relative",
-                      selectedPackage === tier.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
+                      "w-6 h-6",
+                      orderReady ? "text-primary" : "text-muted-foreground"
                     )}
-                  >
-                    {selectedPackage === tier.id && (
-                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                    )}
-                    <p className="font-display text-2xl font-bold text-foreground">{tier.data_amount}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{tier.package_name}</p>
-                    <p className="text-lg font-semibold text-primary mt-3">
-                      GHS {Number(tier.price).toFixed(2)}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                    Order Summary
+                  </p>
+                  {orderReady && selectedTier ? (
+                    <>
+                      <p className="font-semibold text-foreground">
+                        {selectedTier.data_amount} — {getNetworkLabel(selectedNetwork!)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedTier.package_name} → {phoneNumber}
+                      </p>
+                      <p className="text-primary font-bold text-lg">
+                        GHS {Number(selectedTier.price).toFixed(2)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {!selectedNetwork
+                        ? "Select a network to get started."
+                        : !selectedPackage
+                        ? "Choose a data package."
+                        : "Enter a valid beneficiary phone number."}
                     </p>
-                  </button>
-                ))}
+                  )}
+                </div>
               </div>
-            )}
+
+              {orderReady && selectedTier && walletBalance < selectedTier.price && (
+                <p className="text-xs text-destructive font-medium">
+                  ⚠ Insufficient balance (GHS {walletBalance.toFixed(2)})
+                </p>
+              )}
+
+              {/* Actions — always shown, disabled until orderReady */}
+              <div className="flex gap-3 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={handleAddToCart}
+                  disabled={!orderReady}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Add to Cart
+                </Button>
+                <Button
+                  variant="gold"
+                  onClick={handlePurchase}
+                  disabled={
+                    !orderReady ||
+                    isPurchasing ||
+                    !selectedTier ||
+                    walletBalance < (selectedTier?.price ?? 0)
+                  }
+                >
+                  {isPurchasing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Buy Now"
+                  )}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
-
-        {/* Action Buttons */}
-        {selectedTier && (
-          <div className="flex flex-col sm:flex-row gap-3 p-4 bg-card rounded-xl border border-border">
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground">Selected Package</p>
-              <p className="font-semibold text-foreground">
-                {selectedTier.data_amount} - {networks.find((n) => n.id === selectedNetwork)?.label || selectedNetwork}
-              </p>
-              <p className="text-primary font-bold">GHS {Number(selectedTier.price).toFixed(2)}</p>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleAddToCart} disabled={!phoneNumber}>
-                <ShoppingCart className="w-4 h-4" />
-                Add to Cart
-              </Button>
-              <Button
-                variant="gold"
-                onClick={handlePurchase}
-                disabled={isPurchasing || !phoneNumber || walletBalance < selectedTier.price}
-              >
-                {isPurchasing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buy Now"}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Today's Purchases */}
@@ -2983,15 +3955,21 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
             </div>
             <span className="text-sm text-muted-foreground">Today's Purchases</span>
           </div>
-          <p className="font-display text-3xl font-bold text-foreground">{todaysPurchases.length}</p>
-          <p className="text-sm text-muted-foreground mt-1">GHS {todaysSpent.toFixed(2)} spent</p>
+          <p className="font-display text-3xl font-bold text-foreground">
+            {todaysPurchases.length}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            GHS {todaysSpent.toFixed(2)} spent
+          </p>
         </div>
       </div>
 
-      {/* Recent transactions */}
+      {/* Recent Activity */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Recent Activity</h2>
+          <h2 className="font-display text-lg font-semibold text-foreground">
+            Recent Activity
+          </h2>
           <Button variant="ghost" size="sm">
             View All
             <ArrowRight className="w-4 h-4" />
@@ -3006,10 +3984,17 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
           ) : transactions.length > 0 ? (
             <div className="divide-y divide-border">
               {transactions.slice(0, 5).map((tx) => (
-                <div key={tx.id} className="p-4 bg-card hover:bg-muted/50 transition-colors flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    tx.type === "wallet_funding" || tx.type === "commission" ? "bg-success/10" : "bg-primary/10"
-                  }`}>
+                <div
+                  key={tx.id}
+                  className="p-4 bg-card hover:bg-muted/50 transition-colors flex items-center gap-4"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      tx.type === "wallet_funding" || tx.type === "commission"
+                        ? "bg-success/10"
+                        : "bg-primary/10"
+                    }`}
+                  >
                     {tx.type === "wallet_funding" || tx.type === "commission" ? (
                       <TrendingUp className="w-5 h-5 text-success" />
                     ) : (
@@ -3026,22 +4011,33 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(tx.created_at), {
+                        addSuffix: true,
+                      })}
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-semibold ${
-                      tx.type === "wallet_funding" || tx.type === "commission" ? "text-success" : "text-foreground"
-                    }`}>
-                      {tx.type === "wallet_funding" || tx.type === "commission" ? "+" : "-"}GHS {tx.amount.toFixed(2)}
+                    <p
+                      className={`font-semibold ${
+                        tx.type === "wallet_funding" || tx.type === "commission"
+                          ? "text-success"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {tx.type === "wallet_funding" || tx.type === "commission"
+                        ? "+"
+                        : "-"}
+                      GHS {tx.amount.toFixed(2)}
                     </p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      tx.status === "success"
-                        ? "bg-success/10 text-success"
-                        : tx.status === "pending"
-                        ? "bg-yellow-500/10 text-yellow-600"
-                        : "bg-destructive/10 text-destructive"
-                    }`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        tx.status === "success"
+                          ? "bg-success/10 text-success"
+                          : tx.status === "pending"
+                          ? "bg-yellow-500/10 text-yellow-600"
+                          : "bg-destructive/10 text-destructive"
+                      }`}
+                    >
                       {tx.status}
                     </span>
                   </div>
@@ -3052,7 +4048,9 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
             <div className="p-8 text-center">
               <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground">No transactions yet</p>
-              <p className="text-sm text-muted-foreground">Fund your wallet to start purchasing data bundles</p>
+              <p className="text-sm text-muted-foreground">
+                Fund your wallet to start purchasing data bundles
+              </p>
             </div>
           )}
         </div>
@@ -3064,27 +4062,38 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
           <DialogHeader>
             <DialogTitle>Quick Buy Data</DialogTitle>
             <DialogDescription>
-              Select a popular data package and add recipient phone number to cart
+              Select a popular data package and add a recipient phone number.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {!selectedQuickBuyTier ? (
               hotPackages.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">No packages available</div>
+                <div className="text-center py-12 text-muted-foreground">
+                  No packages available
+                </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {hotPackages.map((tier) => (
                     <button
                       key={tier.id}
-                      onClick={() => handleSelectQuickBuyPackage(tier)}
+                      onClick={() => {
+                        setSelectedQuickBuyTier(tier);
+                        setQuickBuyPhoneNumber("");
+                      }}
                       className="p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:shadow-md transition-all text-left"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <NetworkBadge network={tier.network as Network} size="sm" />
-                        <span className="text-xs text-muted-foreground">{getNetworkLabel(tier.network)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getNetworkLabel(tier.network)}
+                        </span>
                       </div>
-                      <p className="font-display text-xl font-bold text-foreground">{tier.data_amount}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{tier.package_name}</p>
+                      <p className="font-display text-xl font-bold text-foreground">
+                        {tier.data_amount}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {tier.package_name}
+                      </p>
                       <p className="text-lg font-semibold text-primary mt-3">
                         GHS {Number(tier.price).toFixed(2)}
                       </p>
@@ -3095,19 +4104,32 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
             ) : (
               <>
                 <div className="p-4 bg-muted/50 rounded-xl border border-border">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <NetworkBadge network={selectedQuickBuyTier.network as Network} size="sm" />
-                        <span className="font-medium text-sm">{selectedQuickBuyTier.data_amount}</span>
-                        <span className="text-xs text-muted-foreground">{getNetworkLabel(selectedQuickBuyTier.network)}</span>
+                        <NetworkBadge
+                          network={selectedQuickBuyTier.network as Network}
+                          size="sm"
+                        />
+                        <span className="font-medium text-sm">
+                          {selectedQuickBuyTier.data_amount}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {getNetworkLabel(selectedQuickBuyTier.network)}
+                        </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">{selectedQuickBuyTier.package_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedQuickBuyTier.package_name}
+                      </p>
                       <p className="text-lg font-semibold text-primary mt-2">
                         GHS {Number(selectedQuickBuyTier.price).toFixed(2)}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedQuickBuyTier(null)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedQuickBuyTier(null)}
+                    >
                       Change Package
                     </Button>
                   </div>
@@ -3124,16 +4146,23 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                       value={quickBuyPhoneNumber}
                       onChange={(e) => setQuickBuyPhoneNumber(e.target.value)}
                       className="pl-10"
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddQuickBuyToCart(); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddQuickBuyToCart();
+                      }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Enter the phone number to receive the data bundle</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the phone number to receive the data bundle
+                  </p>
                 </div>
 
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    onClick={() => { setSelectedQuickBuyTier(null); setQuickBuyPhoneNumber(""); }}
+                    onClick={() => {
+                      setSelectedQuickBuyTier(null);
+                      setQuickBuyPhoneNumber("");
+                    }}
                     className="flex-1"
                   >
                     Back
@@ -3145,9 +4174,15 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                     className="flex-1"
                   >
                     {isAddingQuickBuyToCart ? (
-                      <><Loader2 className="w-4 h-4 animate-spin mr-2" />Adding...</>
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Adding...
+                      </>
                     ) : (
-                      <><ShoppingCart className="w-4 h-4 mr-2" />Add to Cart</>
+                      <>
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Add to Cart
+                      </>
                     )}
                   </Button>
                   <Button
@@ -3157,9 +4192,15 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
                     className="flex-1"
                   >
                     {isBuyingQuickBuyNow ? (
-                      <><Loader2 className="w-4 h-4 animate-spin mr-2" />Buying...</>
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Buying...
+                      </>
                     ) : (
-                      <><Zap className="w-4 h-4 mr-2" />Buy Now</>
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        Buy Now
+                      </>
                     )}
                   </Button>
                 </div>
@@ -3174,6 +4215,11 @@ export const DashboardHome = ({ user, walletBalance, userRole, onFundWallet }: D
 
 const Receipt = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
   </svg>
 );

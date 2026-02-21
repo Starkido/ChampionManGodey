@@ -61,7 +61,7 @@ export const DashboardLayout = ({
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   const openWhatsAppSupport = () => {
-    const message = encodeURIComponent("Hello, I need help with DataFlow.");
+    const message = encodeURIComponent("Hello, I need help with Champion Man Agency Data Service.");
     window.open(`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${message}`, "_blank");
   };
 

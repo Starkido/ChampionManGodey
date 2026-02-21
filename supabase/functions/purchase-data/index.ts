@@ -3181,7 +3181,8 @@ async function purchaseDataFromProvider(
  * of the same combo ever again. This function always enforces a strict window.
  */
 async function wasRecentlyDelivered(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   userId: string,
   phone: string,
   network: string,
@@ -3466,11 +3467,17 @@ Deno.serve(async (req) => {
     if (txInsertError) {
       if (txInsertError.code === "23505") {
         // Unique constraint fired — check current state of the existing record
+        // const { data: existingTx } = await supabaseAdmin
+        //   .from("transactions")
+        //   .select("status, metadata, amount")
+        //   .eq("reference", reference)
+        //   .single();
+
         const { data: existingTx } = await supabaseAdmin
           .from("transactions")
           .select("status, metadata, amount")
           .eq("reference", reference)
-          .single();
+          .single() as { data: { status: string; metadata: any; amount: number } | null; error: any };
 
         if (existingTx?.status === "success") {
           console.log(`[PURCHASE-DATA][${VERSION}] Idempotent replay — already succeeded, returning cached result`);

@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (profile?.phone) {
-        const smsMessage = `Your wallet has been credited with GHS ${amountInGHS.toFixed(2)}. New balance: GHS ${newBalance.toFixed(2)}. Thank you for using DataShop!`;
+        const smsMessage = `Your wallet has been credited with GHS ${amountInGHS.toFixed(2)}. New balance: GHS ${newBalance.toFixed(2)}. Thank you for using Champion Man Agency Data Services!`;
         
         await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
           method: "POST",
