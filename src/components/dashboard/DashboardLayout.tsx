@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 // WhatsApp support number - update this with your actual support number
-const WHATSAPP_SUPPORT_NUMBER = "233594248172"; // Format: country code + number without +
+const WHATSAPP_SUPPORT_NUMBER = "233541220558"; // Format: country code + number without +
 
 interface DashboardLayoutProps {
   user: User;
