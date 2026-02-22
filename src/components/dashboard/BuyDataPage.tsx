@@ -1097,6 +1097,642 @@
 
 
 
+// import { useState } from "react";
+// import { User } from "@supabase/supabase-js";
+// import { NetworkBadge } from "@/components/NetworkBadge";
+// import { TierBadge } from "@/components/TierBadge";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// import { usePricingTiers } from "@/hooks/usePricingTiers";
+// import { useCart } from "@/hooks/useCart";
+// import { supabase } from "@/integrations/supabase/client";
+// import { Database } from "@/integrations/supabase/types";
+// import { toast } from "sonner";
+// import {
+//   ShoppingCart,
+//   Smartphone,
+//   Check,
+//   Loader2,
+//   Trash2,
+//   Minus,
+//   Plus,
+//   Package,
+// } from "lucide-react";
+// import { cn } from "@/lib/utils";
+// import {
+//   Sheet,
+//   SheetContent,
+//   SheetHeader,
+//   SheetTitle,
+//   SheetTrigger,
+// } from "@/components/ui/sheet";
+// import {
+//   Select,
+//   SelectContent,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from "@/components/ui/select";
+// import { Badge } from "@/components/ui/badge";
+// import { Separator } from "@/components/ui/separator";
+
+// const generateIdempotencyKey = () => crypto.randomUUID();
+
+// type AppRole = Database["public"]["Enums"]["app_role"];
+// type Network = "MTN" | "AT_iShare" | "AT_BigTime" | "Telecel" | "MTN_AFA";
+
+// interface BuyDataPageProps {
+//   user: User;
+//   userRole: AppRole;
+//   walletBalance: number;
+//   onPurchaseComplete?: () => void;
+// }
+
+// const networks: { id: Network; label: string; description?: string }[] = [
+//   { id: "MTN", label: "MTN" },
+//   { id: "AT_iShare", label: "AT iShare", description: "60-day expiry" },
+//   { id: "AT_BigTime", label: "AT BigTime", description: "Non-expiry" },
+//   { id: "Telecel", label: "Telecel" },
+//   { id: "MTN_AFA", label: "MTN AFA" },
+// ];
+
+// export const BuyDataPage = ({
+//   user,
+//   userRole,
+//   walletBalance,
+//   onPurchaseComplete,
+// }: BuyDataPageProps) => {
+//   const [selectedNetwork, setSelectedNetwork] = useState<Network | null>(null);
+//   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+//   const [phoneNumber, setPhoneNumber] = useState("");
+//   const [isPurchasing, setIsPurchasing] = useState(false);
+//   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+//   const { tiers, loading } = usePricingTiers(userRole, selectedNetwork ?? undefined);
+//   const {
+//     cartItems,
+//     cartTotal,
+//     addToCart,
+//     removeFromCart,
+//     updateQuantity,
+//     clearCart,
+//   } = useCart(user.id);
+
+//   const selectedTier = tiers.find((t) => t.id === selectedPackage);
+
+//   const validatePhone = (phone: string): boolean => {
+//     const phoneRegex = /^(0[235][0-9]{8}|233[235][0-9]{8})$/;
+//     return phoneRegex.test(phone.replace(/\s/g, ""));
+//   };
+
+//   // All three fields must be filled and phone valid before actions unlock
+//   const orderReady =
+//     validatePhone(phoneNumber) &&
+//     selectedNetwork !== null &&
+//     selectedPackage !== null;
+
+//   const handleNetworkChange = (network: Network) => {
+//     setSelectedNetwork(network);
+//     setSelectedPackage(null);
+//   };
+
+//   const handlePurchase = async () => {
+//     if (!selectedPackage || !phoneNumber) {
+//       toast.error("Please select a package and enter a phone number");
+//       return;
+//     }
+//     if (!selectedTier) {
+//       toast.error("Invalid package selected");
+//       return;
+//     }
+//     if (walletBalance < selectedTier.price) {
+//       toast.error("Insufficient wallet balance. Please fund your wallet first.");
+//       return;
+//     }
+//     if (!validatePhone(phoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+
+//     setIsPurchasing(true);
+//     try {
+//       const idempotencyKey = generateIdempotencyKey();
+//       const { data, error } = await supabase.functions.invoke("purchase-data", {
+//         body: {
+//           idempotency_key: idempotencyKey,
+//           pricing_tier_id: selectedPackage,
+//           beneficiary_phone: phoneNumber.replace(/\s/g, ""),
+//           quantity: 1,
+//         },
+//       });
+
+//       if (error) {
+//         toast.error("Purchase failed. Please try again.");
+//         return;
+//       }
+//       if (data.error) {
+//         toast.error(data.error);
+//         return;
+//       }
+
+//       const successCount =
+//         data.results?.filter((r: any) => r.status === "success").length || 0;
+//       const failedCount =
+//         data.results?.filter((r: any) => r.status === "failed").length || 0;
+
+//       if (successCount > 0 && failedCount === 0) {
+//         toast.success(
+//           `Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`,
+//           { description: data.reference ? `Ref: ${data.reference}` : undefined }
+//         );
+//       } else if (successCount > 0) {
+//         toast.success(
+//           `Purchase partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+//           { description: data.reference ? `Ref: ${data.reference}` : undefined }
+//         );
+//       } else {
+//         toast.info(
+//           `Purchase processed. ${failedCount} item(s) failed. Amount refunded.`,
+//           { description: data.reference ? `Ref: ${data.reference}` : undefined }
+//         );
+//       }
+
+//       setSelectedPackage(null);
+//       setPhoneNumber("");
+//       setSelectedNetwork(null);
+//       setTimeout(() => window.location.reload(), 1500);
+//     } catch (err) {
+//       toast.error("Purchase failed. Please try again.");
+//     } finally {
+//       setIsPurchasing(false);
+//     }
+//   };
+
+//   const handleAddToCart = async () => {
+//     if (!selectedPackage || !phoneNumber) {
+//       toast.error("Please select a package and enter a phone number");
+//       return;
+//     }
+//     if (!validatePhone(phoneNumber)) {
+//       toast.error("Please enter a valid Ghana phone number");
+//       return;
+//     }
+
+//     const success = await addToCart(selectedPackage, phoneNumber.replace(/\s/g, ""));
+//     if (success) {
+//       toast.success("Added to cart!");
+//       setSelectedPackage(null);
+//     }
+//   };
+
+//   const handleCheckout = async () => {
+//     if (cartItems.length === 0) {
+//       toast.error("Cart is empty");
+//       return;
+//     }
+//     if (walletBalance < cartTotal) {
+//       toast.error("Insufficient wallet balance. Please fund your wallet first.");
+//       return;
+//     }
+
+//     setIsCheckingOut(true);
+//     try {
+//       const idempotencyKey = generateIdempotencyKey();
+//       const { data, error } = await supabase.functions.invoke("purchase-data", {
+//         body: {
+//           idempotency_key: idempotencyKey,
+//           cart_items: cartItems.map((item) => ({
+//             pricing_tier_id: item.pricing_tier_id,
+//             beneficiary_phone: item.beneficiary_phone,
+//             quantity: item.quantity,
+//           })),
+//         },
+//       });
+
+//       if (error) {
+//         toast.error("Checkout failed. Please try again.");
+//         return;
+//       }
+//       if (data.error) {
+//         toast.error(data.error);
+//         return;
+//       }
+
+//       const successCount =
+//         data.results?.filter((r: any) => r.status === "success").length || 0;
+//       const failedCount =
+//         data.results?.filter((r: any) => r.status === "failed").length || 0;
+
+//       if (successCount > 0 && failedCount === 0) {
+//         toast.success("Checkout successful! All data bundles are being processed.", {
+//           description: data.reference ? `Ref: ${data.reference}` : undefined,
+//         });
+//       } else if (successCount > 0) {
+//         toast.success(
+//           `Checkout partially completed! ${successCount} succeeded, ${failedCount} failed.`,
+//           { description: data.reference ? `Ref: ${data.reference}` : undefined }
+//         );
+//       } else {
+//         toast.info(
+//           `Checkout processed. ${failedCount} item(s) failed. Amount refunded.`,
+//           { description: data.reference ? `Ref: ${data.reference}` : undefined }
+//         );
+//       }
+
+//       await clearCart();
+//       setSelectedPackage(null);
+//       setPhoneNumber("");
+//       setSelectedNetwork(null);
+//       setTimeout(() => window.location.reload(), 1500);
+//     } catch (err) {
+//       toast.error("Checkout failed. Please try again.");
+//     } finally {
+//       setIsCheckingOut(false);
+//     }
+//   };
+
+//   return (
+//     <div className="p-6 lg:p-8 space-y-6">
+//       {/* Header */}
+//       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+//         <div>
+//           <h1 className="font-display text-2xl lg:text-3xl font-bold text-foreground">
+//             Buy Data
+//           </h1>
+//           <p className="text-muted-foreground mt-1">
+//             Purchase data bundles at{" "}
+//             <TierBadge tier={userRole} size="sm" className="inline-flex ml-1" />{" "}
+//             prices
+//           </p>
+//         </div>
+//         <div className="flex items-center gap-3">
+//           <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-xl border border-border">
+//             <span className="text-sm text-muted-foreground">Wallet:</span>
+//             <span className="font-semibold text-foreground">
+//               GHS {walletBalance.toFixed(2)}
+//             </span>
+//           </div>
+
+//           {/* Cart Sheet */}
+//           <Sheet>
+//             <SheetTrigger asChild>
+//               <Button variant="outline" className="relative">
+//                 <ShoppingCart className="w-4 h-4" />
+//                 {cartItems.length > 0 && (
+//                   <Badge
+//                     className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
+//                     variant="default"
+//                   >
+//                     {cartItems.length}
+//                   </Badge>
+//                 )}
+//               </Button>
+//             </SheetTrigger>
+//             <SheetContent className="w-full sm:max-w-md">
+//               <SheetHeader>
+//                 <SheetTitle>Your Cart</SheetTitle>
+//               </SheetHeader>
+//               <div className="mt-6 space-y-4">
+//                 {cartItems.length === 0 ? (
+//                   <p className="text-center text-muted-foreground py-8">
+//                     Your cart is empty
+//                   </p>
+//                 ) : (
+//                   <>
+//                     <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+//                       {cartItems.map((item) => (
+//                         <div
+//                           key={item.id}
+//                           className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
+//                         >
+//                           <div className="flex-1 min-w-0">
+//                             <div className="flex items-center gap-2">
+//                               <NetworkBadge
+//                                 network={(item.tier?.network || "MTN") as Network}
+//                                 size="sm"
+//                               />
+//                               <span className="font-medium text-sm truncate">
+//                                 {item.tier?.data_amount}
+//                               </span>
+//                             </div>
+//                             <p className="text-xs text-muted-foreground mt-1">
+//                               {item.tier?.package_name}
+//                             </p>
+//                             <p className="text-xs text-muted-foreground">
+//                               To: {item.beneficiary_phone}
+//                             </p>
+//                             <p className="text-sm font-semibold text-primary mt-1">
+//                               GHS{" "}
+//                               {((item.tier?.price || 0) * item.quantity).toFixed(2)}
+//                             </p>
+//                           </div>
+//                           <div className="flex flex-col items-end gap-2">
+//                             <Button
+//                               variant="ghost"
+//                               size="icon"
+//                               className="h-7 w-7"
+//                               onClick={() => removeFromCart(item.id)}
+//                             >
+//                               <Trash2 className="w-4 h-4 text-destructive" />
+//                             </Button>
+//                             <div className="flex items-center gap-1">
+//                               <Button
+//                                 variant="outline"
+//                                 size="icon"
+//                                 className="h-6 w-6"
+//                                 onClick={() =>
+//                                   updateQuantity(item.id, item.quantity - 1)
+//                                 }
+//                               >
+//                                 <Minus className="w-3 h-3" />
+//                               </Button>
+//                               <span className="w-6 text-center text-sm">
+//                                 {item.quantity}
+//                               </span>
+//                               <Button
+//                                 variant="outline"
+//                                 size="icon"
+//                                 className="h-6 w-6"
+//                                 onClick={() =>
+//                                   updateQuantity(item.id, item.quantity + 1)
+//                                 }
+//                               >
+//                                 <Plus className="w-3 h-3" />
+//                               </Button>
+//                             </div>
+//                           </div>
+//                         </div>
+//                       ))}
+//                     </div>
+//                     <Separator />
+//                     <div className="space-y-3">
+//                       <div className="flex justify-between text-sm">
+//                         <span className="text-muted-foreground">Subtotal</span>
+//                         <span className="font-semibold">
+//                           GHS {cartTotal.toFixed(2)}
+//                         </span>
+//                       </div>
+//                       <div className="flex justify-between text-sm">
+//                         <span className="text-muted-foreground">Wallet Balance</span>
+//                         <span
+//                           className={cn(
+//                             "font-semibold",
+//                             walletBalance < cartTotal
+//                               ? "text-destructive"
+//                               : "text-primary"
+//                           )}
+//                         >
+//                           GHS {walletBalance.toFixed(2)}
+//                         </span>
+//                       </div>
+//                       <Button
+//                         className="w-full"
+//                         variant="gold"
+//                         disabled={
+//                           isCheckingOut ||
+//                           cartItems.length === 0 ||
+//                           walletBalance < cartTotal
+//                         }
+//                         onClick={handleCheckout}
+//                       >
+//                         {isCheckingOut ? (
+//                           <Loader2 className="w-4 h-4 animate-spin" />
+//                         ) : walletBalance < cartTotal ? (
+//                           "Insufficient Balance"
+//                         ) : (
+//                           `Checkout - GHS ${cartTotal.toFixed(2)}`
+//                         )}
+//                       </Button>
+//                     </div>
+//                   </>
+//                 )}
+//               </div>
+//             </SheetContent>
+//           </Sheet>
+//         </div>
+//       </div>
+
+//       {/* ── Main Purchase Form ── */}
+//       <Card>
+//         <CardHeader className="pb-2">
+//           <CardTitle className="text-lg">Purchase Data Bundle</CardTitle>
+//           <p className="text-sm text-muted-foreground">
+//             Select a network and package, then enter the beneficiary phone number to proceed.
+//           </p>
+//         </CardHeader>
+//         <CardContent className="space-y-6 pt-4">
+
+//           {/* Network Selection — always interactive */}
+//           <div className="space-y-3">
+//             <Label className="text-base font-semibold">Select Network</Label>
+//             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+//               {networks.map((network) => (
+//                 <button
+//                   key={network.id}
+//                   onClick={() => handleNetworkChange(network.id)}
+//                   className={cn(
+//                     "p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+//                     selectedNetwork === network.id
+//                       ? "border-primary bg-primary/5 shadow-sm"
+//                       : "border-border hover:border-primary/50"
+//                   )}
+//                 >
+//                   <NetworkBadge network={network.id} size="lg" />
+//                   <span className="text-xs font-medium text-center leading-tight">
+//                     {network.label}
+//                   </span>
+//                   {network.description && (
+//                     <span className="text-[10px] text-muted-foreground text-center leading-tight">
+//                       {network.description}
+//                     </span>
+//                   )}
+//                   {selectedNetwork === network.id && (
+//                     <Check className="w-3 h-3 text-primary" />
+//                   )}
+//                 </button>
+//               ))}
+//             </div>
+//           </div>
+
+//           <Separator />
+
+//           {/* Package Dropdown — active as soon as a network is chosen */}
+//           <div className="space-y-2">
+//             <Label className="text-base font-semibold">Choose Data Package</Label>
+//             <div className="max-w-md">
+//               {loading && selectedNetwork ? (
+//                 <div className="flex items-center gap-2 px-4 py-3 border rounded-xl border-border text-muted-foreground text-sm">
+//                   <Loader2 className="w-4 h-4 animate-spin" />
+//                   Loading packages…
+//                 </div>
+//               ) : (
+//                 <Select
+//                   value={selectedPackage ?? ""}
+//                   onValueChange={(val) => setSelectedPackage(val)}
+//                   disabled={!selectedNetwork || loading}
+//                 >
+//                   <SelectTrigger className="w-full">
+//                     <SelectValue
+//                       placeholder={
+//                         !selectedNetwork
+//                           ? "Select a network first"
+//                           : tiers.length === 0
+//                           ? "No packages available"
+//                           : "Pick a data package…"
+//                       }
+//                     />
+//                   </SelectTrigger>
+//                   <SelectContent className="max-h-72">
+//                     {tiers.map((tier) => (
+//                       <SelectItem key={tier.id} value={tier.id}>
+//                         <div className="flex items-center gap-4 w-full">
+//                           <span className="font-semibold">{tier.data_amount}</span>
+//                           <span className="text-muted-foreground text-xs">
+//                             {tier.package_name}
+//                           </span>
+//                           <span className="text-primary font-bold ml-auto">
+//                             GHS {Number(tier.price).toFixed(2)}
+//                           </span>
+//                         </div>
+//                       </SelectItem>
+//                     ))}
+//                   </SelectContent>
+//                 </Select>
+//               )}
+//             </div>
+//             <p className="text-xs text-muted-foreground">
+//               {selectedNetwork && tiers.length > 0
+//                 ? `${tiers.length} packages available for ${
+//                     networks.find((n) => n.id === selectedNetwork)?.label
+//                   }.`
+//                 : "Select a network above to see available packages."}
+//             </p>
+//           </div>
+
+//           <Separator />
+
+//           {/* Phone Number — always interactive */}
+//           <div className="space-y-2">
+//             <Label htmlFor="phone" className="text-base font-semibold">
+//               Beneficiary Phone Number
+//             </Label>
+//             <div className="relative max-w-md">
+//               <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+//               <Input
+//                 id="phone"
+//                 type="tel"
+//                 placeholder="e.g., 0241234567"
+//                 value={phoneNumber}
+//                 onChange={(e) => setPhoneNumber(e.target.value)}
+//                 className="pl-10"
+//               />
+//             </div>
+//             <p className="text-xs text-muted-foreground">
+//               Enter the Ghana phone number that will receive the data bundle.
+//             </p>
+//           </div>
+//         </CardContent>
+//       </Card>
+
+//       {/* ── Order Summary + Action Buttons — always visible ── */}
+//       <Card
+//         className={cn(
+//           "border transition-colors",
+//           orderReady ? "border-primary/30 bg-primary/5" : "border-border bg-muted/30"
+//         )}
+//       >
+//         <CardContent className="pt-5">
+//           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+//             {/* Summary */}
+//             <div className="flex items-center gap-4 flex-1">
+//               <div
+//                 className={cn(
+//                   "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+//                   orderReady ? "bg-primary/10" : "bg-muted"
+//                 )}
+//               >
+//                 <Package
+//                   className={cn(
+//                     "w-6 h-6",
+//                     orderReady ? "text-primary" : "text-muted-foreground"
+//                   )}
+//                 />
+//               </div>
+//               <div>
+//                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+//                   Order Summary
+//                 </p>
+//                 {orderReady && selectedTier ? (
+//                   <>
+//                     <p className="font-semibold text-foreground">
+//                       {selectedTier.data_amount} —{" "}
+//                       {networks.find((n) => n.id === selectedNetwork)?.label ||
+//                         selectedNetwork}
+//                     </p>
+//                     <p className="text-xs text-muted-foreground">
+//                       {selectedTier.package_name} → {phoneNumber}
+//                     </p>
+//                     <p className="text-primary font-bold text-lg">
+//                       GHS {Number(selectedTier.price).toFixed(2)}
+//                     </p>
+//                   </>
+//                 ) : (
+//                   <p className="text-sm text-muted-foreground mt-1">
+//                     {!selectedNetwork
+//                       ? "Select a network to get started."
+//                       : !selectedPackage
+//                       ? "Choose a data package."
+//                       : "Enter a valid beneficiary phone number."}
+//                   </p>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Insufficient balance warning */}
+//             {orderReady && selectedTier && walletBalance < selectedTier.price && (
+//               <p className="text-xs text-destructive font-medium">
+//                 ⚠ Insufficient balance (GHS {walletBalance.toFixed(2)})
+//               </p>
+//             )}
+
+//             {/* Actions — always shown, disabled until orderReady */}
+//             <div className="flex gap-3 shrink-0">
+//               <Button
+//                 variant="outline"
+//                 onClick={handleAddToCart}
+//                 disabled={!orderReady}
+//               >
+//                 <ShoppingCart className="w-4 h-4" />
+//                 Add to Cart
+//               </Button>
+//               <Button
+//                 variant="gold"
+//                 onClick={handlePurchase}
+//                 disabled={
+//                   !orderReady ||
+//                   isPurchasing ||
+//                   !selectedTier ||
+//                   walletBalance < (selectedTier?.price ?? 0)
+//                 }
+//               >
+//                 {isPurchasing ? (
+//                   <Loader2 className="w-4 h-4 animate-spin" />
+//                 ) : (
+//                   "Buy Now"
+//                 )}
+//               </Button>
+//             </div>
+//           </div>
+//         </CardContent>
+//       </Card>
+//     </div>
+//   );
+// };
+
+
+
 import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { NetworkBadge } from "@/components/NetworkBadge";
@@ -1143,6 +1779,10 @@ const generateIdempotencyKey = () => crypto.randomUUID();
 type AppRole = Database["public"]["Enums"]["app_role"];
 type Network = "MTN" | "AT_iShare" | "AT_BigTime" | "Telecel" | "MTN_AFA";
 
+interface PurchaseResult {
+  status: "success" | "failed" | "pending";
+}
+
 interface BuyDataPageProps {
   user: User;
   userRole: AppRole;
@@ -1170,7 +1810,11 @@ export const BuyDataPage = ({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const { tiers, loading } = usePricingTiers(userRole, selectedNetwork ?? undefined);
+  // FIX #8: Only fetch tiers when a network is actually selected (pass undefined otherwise)
+  const { tiers, loading } = usePricingTiers(
+    userRole,
+    selectedNetwork ?? undefined
+  );
   const {
     cartItems,
     cartTotal,
@@ -1232,16 +1876,17 @@ export const BuyDataPage = ({
         toast.error("Purchase failed. Please try again.");
         return;
       }
-      if (data.error) {
+      if (data?.error) {
         toast.error(data.error);
         return;
       }
 
       const successCount =
-        data.results?.filter((r: any) => r.status === "success").length || 0;
+        data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
       const failedCount =
-        data.results?.filter((r: any) => r.status === "failed").length || 0;
+        data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
 
+      // FIX #5: data.reference is now returned by the edge function
       if (successCount > 0 && failedCount === 0) {
         toast.success(
           `Purchase successful! ${selectedTier.data_amount} sent to ${phoneNumber}`,
@@ -1315,16 +1960,17 @@ export const BuyDataPage = ({
         toast.error("Checkout failed. Please try again.");
         return;
       }
-      if (data.error) {
+      if (data?.error) {
         toast.error(data.error);
         return;
       }
 
       const successCount =
-        data.results?.filter((r: any) => r.status === "success").length || 0;
+        data.results?.filter((r: PurchaseResult) => r.status === "success").length || 0;
       const failedCount =
-        data.results?.filter((r: any) => r.status === "failed").length || 0;
+        data.results?.filter((r: PurchaseResult) => r.status === "failed").length || 0;
 
+      // FIX #5: data.reference is now returned by the edge function
       if (successCount > 0 && failedCount === 0) {
         toast.success("Checkout successful! All data bundles are being processed.", {
           description: data.reference ? `Ref: ${data.reference}` : undefined,
